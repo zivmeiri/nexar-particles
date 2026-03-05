@@ -917,7 +917,8 @@ section {
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     THREE.JS & WEBGL PARTICLE SYSTEM
+     THREE.JS & WEBGL PARTICLE SYSTEM v2
+     Infinite field · Depth of field · Curl noise · Parallax
      ═══════════════════════════════════════════════════ -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -928,411 +929,273 @@ section {
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isLowPower = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
 
-  /* ─── Create glow sprite texture procedurally ─── */
-  function createGlowTexture(size, falloff) {
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    const half = size / 2;
-
-    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-    gradient.addColorStop(0.0, 'rgba(255,255,255,1.0)');
-    gradient.addColorStop(0.15, 'rgba(255,255,255,0.8)');
-    gradient.addColorStop(0.35, `rgba(255,255,255,${falloff})`);
-    gradient.addColorStop(0.65, 'rgba(255,255,255,0.05)');
-    gradient.addColorStop(1.0, 'rgba(255,255,255,0.0)');
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    return new THREE.CanvasTexture(canvas);
-  }
-
-  function createSoftTexture(size) {
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    const half = size / 2;
-
-    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-    gradient.addColorStop(0.0, 'rgba(255,255,255,0.5)');
-    gradient.addColorStop(0.3, 'rgba(255,255,255,0.15)');
-    gradient.addColorStop(0.6, 'rgba(255,255,255,0.03)');
-    gradient.addColorStop(1.0, 'rgba(255,255,255,0.0)');
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    return new THREE.CanvasTexture(canvas);
-  }
-
-  const glowTex = createGlowTexture(128, 0.35);
-  const softTex = createSoftTexture(128);
-
   /* ─── Scene setup ─── */
   const canvas = document.getElementById('webgl-canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.sortObjects = true;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x070C18, 0.025);
 
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-  camera.position.set(0, 1.5, 22);
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+  camera.position.set(0, 3, 35);
   camera.lookAt(0, 0, 0);
 
-  /* ─── Constants ─── */
-  const TEAL = new THREE.Color(0x1AECBC);
+  /* ─── Color palette ─── */
+  const TEAL   = new THREE.Color(0x1AECBC);
   const PURPLE = new THREE.Color(0x8B3FD9);
   const ORANGE = new THREE.Color(0xFF6B2B);
-  const WHITE = new THREE.Color(0xDDEEFF);
 
-  /* ─── Layer 1: Core luminous particles (the cloud body) ─── */
-  const CORE_COUNT = isLowPower ? 500 : 1500;
-  const coreGeo = new THREE.BufferGeometry();
-  const corePositions = new Float32Array(CORE_COUNT * 3);
-  const coreColors = new Float32Array(CORE_COUNT * 3);
-  const coreSizes = new Float32Array(CORE_COUNT);
-  const coreDrift = [];
-  const coreBasePos = [];
+  /* ═══════════════════════════════════════════════════
+     CURL NOISE — organic turbulent motion
+     Multi-octave layered trig approximation of curl noise.
+     Divergence-free so particles flow in streams, never clump.
+     ═══════════════════════════════════════════════════ */
+  function curlNoise(x, y, z, t) {
+    const s = 0.12;
+    const sx = x * s, sy = y * s, sz = z * s;
+    const st = t * 0.25;
 
-  for (let i = 0; i < CORE_COUNT; i++) {
-    // Gaussian-ish distribution: more dense at center
-    const r = Math.pow(Math.random(), 0.4) * 14;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const x = r * Math.sin(phi) * Math.cos(theta);
-    const y = (Math.random() - 0.5) * 5;
-    const z = r * Math.sin(phi) * Math.sin(theta);
+    // Potential field derivatives (approximate curl)
+    const dx = Math.sin(sy * 1.4 + st) * Math.cos(sz * 0.8 + st * 0.7) * 0.5
+             + Math.sin(sz * 2.1 - st * 0.5) * 0.25
+             + Math.cos(sy * 0.6 + sz * 1.2 + st * 0.3) * 0.15;
 
-    corePositions[i * 3] = x;
-    corePositions[i * 3 + 1] = y;
-    corePositions[i * 3 + 2] = z;
+    const dy = Math.sin(sz * 1.1 + st * 0.8) * Math.cos(sx * 0.9 - st * 0.6) * 0.3
+             + Math.cos(sx * 1.7 + st * 0.4) * 0.15
+             - Math.sin(sx * 0.4 + sz * 0.9 - st * 0.2) * 0.08;
 
-    coreBasePos.push(new THREE.Vector3(x, y, z));
+    const dz = Math.sin(sx * 1.3 - st * 0.9) * Math.cos(sy * 1.0 + st * 0.5) * 0.5
+             + Math.cos(sx * 0.5 + sy * 1.4 - st * 0.3) * 0.25;
 
-    // Color: mix of teal and purple with variation
-    const t = Math.random();
-    const color = new THREE.Color();
-    if (t < 0.45) {
-      color.copy(TEAL);
-    } else if (t < 0.9) {
-      color.copy(PURPLE);
+    return { x: dx, y: dy, z: dz };
+  }
+
+  /* ═══════════════════════════════════════════════════
+     PARTICLE FIELD — infinite, depth-varied
+     ═══════════════════════════════════════════════════ */
+  const COUNT = isLowPower ? 1200 : 3000;
+
+  // Bounding volume for infinite wrapping
+  const BX = 80, BY = 40, BZ = 120;
+  const HX = BX / 2, HY = BY / 2, HZ = BZ / 2;
+  const Z_OFFSET = -15; // shift field forward toward camera
+
+  const geo = new THREE.BufferGeometry();
+  const pos    = new Float32Array(COUNT * 3);
+  const col    = new Float32Array(COUNT * 3);
+  const aSize  = new Float32Array(COUNT);
+  const aDepth = new Float32Array(COUNT); // 0 = near, 1 = far — affects speed + bokeh
+  const aPhase = new Float32Array(COUNT);
+
+  for (let i = 0; i < COUNT; i++) {
+    // Distribute throughout the volume
+    pos[i * 3]     = (Math.random() - 0.5) * BX;
+    pos[i * 3 + 1] = (Math.random() - 0.5) * BY;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * BZ + Z_OFFSET;
+
+    // Depth layer — biased toward mid-range for balanced density
+    const d = Math.random();
+    aDepth[i] = d;
+
+    // Size: dramatic 50x range — near bokeh to far pinpoints
+    if (d < 0.1) {
+      aSize[i] = 2.0 + Math.random() * 3.0;   // foreground bokeh
+    } else if (d < 0.35) {
+      aSize[i] = 0.6 + Math.random() * 1.4;   // mid-near
+    } else if (d < 0.65) {
+      aSize[i] = 0.15 + Math.random() * 0.5;  // mid
     } else {
-      color.copy(ORANGE);
+      aSize[i] = 0.03 + Math.random() * 0.15; // far pinpoints
     }
-    color.offsetHSL((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.15);
 
-    coreColors[i * 3] = color.r;
-    coreColors[i * 3 + 1] = color.g;
-    coreColors[i * 3 + 2] = color.b;
-
-    // Size: varied, some tiny, some larger
-    coreSizes[i] = 0.15 + Math.pow(Math.random(), 2) * 0.6;
-
-    coreDrift.push(new THREE.Vector3(
-      (Math.random() - 0.5) * 0.004,
-      (Math.random() - 0.5) * 0.003,
-      (Math.random() - 0.5) * 0.004
-    ));
-  }
-
-  coreGeo.setAttribute('position', new THREE.BufferAttribute(corePositions, 3));
-  coreGeo.setAttribute('color', new THREE.BufferAttribute(coreColors, 3));
-  coreGeo.setAttribute('size', new THREE.BufferAttribute(coreSizes, 1));
-
-  // Custom shader for size-varied, glowing particles
-  const coreVertexShader = `
-    attribute float size;
-    varying vec3 vColor;
-    varying float vDist;
-    void main() {
-      vColor = color;
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      vDist = -mvPos.z;
-      gl_PointSize = size * (350.0 / -mvPos.z);
-      gl_Position = projectionMatrix * mvPos;
-    }
-  `;
-
-  const coreFragmentShader = `
-    uniform sampler2D uTexture;
-    varying vec3 vColor;
-    varying float vDist;
-    void main() {
-      vec4 texColor = texture2D(uTexture, gl_PointCoord);
-      float fogFactor = exp(-0.025 * 0.025 * vDist * vDist);
-      vec3 fogColor = vec3(0.027, 0.047, 0.094);
-      vec3 finalColor = mix(fogColor, vColor, fogFactor);
-      gl_FragColor = vec4(finalColor * 1.6, texColor.a * 0.85 * fogFactor);
-    }
-  `;
-
-  const coreMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      uTexture: { value: glowTex }
-    },
-    vertexShader: coreVertexShader,
-    fragmentShader: coreFragmentShader,
-    vertexColors: true,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-
-  const corePoints = new THREE.Points(coreGeo, coreMaterial);
-  scene.add(corePoints);
-
-  /* ─── Layer 2: Soft haze / nebula layer (large, dim, atmospheric) ─── */
-  const HAZE_COUNT = isLowPower ? 60 : 180;
-  const hazeGeo = new THREE.BufferGeometry();
-  const hazePositions = new Float32Array(HAZE_COUNT * 3);
-  const hazeColors = new Float32Array(HAZE_COUNT * 3);
-  const hazeSizes = new Float32Array(HAZE_COUNT);
-  const hazeDrift = [];
-  const hazeBasePos = [];
-
-  for (let i = 0; i < HAZE_COUNT; i++) {
-    const r = Math.pow(Math.random(), 0.3) * 16;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const x = r * Math.sin(phi) * Math.cos(theta);
-    const y = (Math.random() - 0.5) * 6;
-    const z = r * Math.sin(phi) * Math.sin(theta);
-
-    hazePositions[i * 3] = x;
-    hazePositions[i * 3 + 1] = y;
-    hazePositions[i * 3 + 2] = z;
-
-    hazeBasePos.push(new THREE.Vector3(x, y, z));
-
+    // Color
     const t = Math.random();
-    const color = new THREE.Color();
-    if (t < 0.5) color.copy(TEAL); else color.copy(PURPLE);
-    color.offsetHSL(0, -0.2, 0);
+    const c = new THREE.Color();
+    if (t < 0.42)      c.copy(TEAL);
+    else if (t < 0.82) c.copy(PURPLE);
+    else                c.copy(ORANGE);
+    c.offsetHSL(
+      (Math.random() - 0.5) * 0.1,
+      (Math.random() - 0.5) * 0.15,
+      (Math.random() - 0.5) * 0.12
+    );
+    col[i * 3]     = c.r;
+    col[i * 3 + 1] = c.g;
+    col[i * 3 + 2] = c.b;
 
-    hazeColors[i * 3] = color.r;
-    hazeColors[i * 3 + 1] = color.g;
-    hazeColors[i * 3 + 2] = color.b;
-
-    hazeSizes[i] = 2.0 + Math.random() * 4.0;
-
-    hazeDrift.push(new THREE.Vector3(
-      (Math.random() - 0.5) * 0.001,
-      (Math.random() - 0.5) * 0.001,
-      (Math.random() - 0.5) * 0.001
-    ));
+    aPhase[i] = Math.random() * Math.PI * 2;
   }
 
-  hazeGeo.setAttribute('position', new THREE.BufferAttribute(hazePositions, 3));
-  hazeGeo.setAttribute('color', new THREE.BufferAttribute(hazeColors, 3));
-  hazeGeo.setAttribute('size', new THREE.BufferAttribute(hazeSizes, 1));
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aSize',    new THREE.BufferAttribute(aSize, 1));
+  geo.setAttribute('aDepth',   new THREE.BufferAttribute(aDepth, 1));
+  geo.setAttribute('aPhase',   new THREE.BufferAttribute(aPhase, 1));
 
-  const hazeVertexShader = `
-    attribute float size;
-    varying vec3 vColor;
-    varying float vDist;
+  /* ─── Particle shaders ─── */
+  const particleVert = `
+    attribute float aSize;
+    attribute float aDepth;
+    attribute float aPhase;
+
+    uniform float uTime;
+    uniform float uFocusDist;
+
+    varying vec3  vColor;
+    varying float vAlpha;
+    varying float vBokeh;
+
     void main() {
       vColor = color;
+
       vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      vDist = -mvPos.z;
-      gl_PointSize = size * (300.0 / -mvPos.z);
+      float dist = -mvPos.z;
+
+      // ── Depth of field ──
+      float focusDelta = abs(dist - uFocusDist);
+      float bokeh = smoothstep(0.0, 30.0, focusDelta) * 0.8;
+      vBokeh = bokeh;
+
+      // Perspective size + bokeh enlargement
+      float pSize = aSize * (450.0 / max(dist, 0.5));
+      pSize *= (1.0 + bokeh * 2.5);
+      gl_PointSize = clamp(pSize, 0.5, 200.0);
+
+      // Alpha: distance fade + near fade + bokeh softening
+      float farFade  = 1.0 - smoothstep(50.0, 140.0, dist);
+      float nearFade = smoothstep(0.3, 4.0, dist);
+      float bokehDim = 1.0 - bokeh * 0.55;
+
+      // Twinkle
+      float twinkle = 0.8 + 0.2 * sin(uTime * 1.3 + aPhase * 6.28);
+
+      vAlpha = farFade * nearFade * bokehDim * twinkle;
+
       gl_Position = projectionMatrix * mvPos;
     }
   `;
 
-  const hazeFragmentShader = `
-    uniform sampler2D uTexture;
-    varying vec3 vColor;
-    varying float vDist;
+  const particleFrag = `
+    varying vec3  vColor;
+    varying float vAlpha;
+    varying float vBokeh;
+
     void main() {
-      vec4 texColor = texture2D(uTexture, gl_PointCoord);
-      float fogFactor = exp(-0.02 * 0.02 * vDist * vDist);
-      gl_FragColor = vec4(vColor * 0.7, texColor.a * 0.12 * fogFactor);
+      float d = length(gl_PointCoord - 0.5) * 2.0;
+
+      // Adaptive sharpness: sharp when in focus, soft bokeh when not
+      float sharpness = mix(3.0, 0.6, vBokeh);
+      float core = exp(-d * d * sharpness);
+
+      // Bokeh ring for out-of-focus particles
+      float ring = smoothstep(0.65, 0.9, d) * smoothstep(1.0, 0.9, d) * vBokeh * 0.35;
+      float alpha = (core + ring) * vAlpha;
+
+      if (alpha < 0.002) discard;
+
+      // Slightly boost color on bright core
+      vec3 finalColor = vColor * (1.15 + (1.0 - d) * 0.2);
+
+      gl_FragColor = vec4(finalColor, alpha * 0.92);
     }
   `;
 
-  const hazeMaterial = new THREE.ShaderMaterial({
-    uniforms: { uTexture: { value: softTex } },
-    vertexShader: hazeVertexShader,
-    fragmentShader: hazeFragmentShader,
-    vertexColors: true,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
+  const particleMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:      { value: 0 },
+      uFocusDist: { value: 30.0 }
+    },
+    vertexShader:   particleVert,
+    fragmentShader: particleFrag,
+    vertexColors:   true,
+    transparent:    true,
+    blending:       THREE.AdditiveBlending,
+    depthWrite:     false,
+    depthTest:      true
   });
 
-  const hazePoints = new THREE.Points(hazeGeo, hazeMaterial);
-  scene.add(hazePoints);
+  const particles = new THREE.Points(geo, particleMat);
+  scene.add(particles);
 
-  /* ─── Layer 3: Bright hero spheres (a few actual 3D spheres with glow) ─── */
-  const HERO_COUNT = isLowPower ? 15 : 40;
-  const heroSphereGeo = new THREE.SphereGeometry(1, 16, 16);
-  const heroParticles = [];
-
-  for (let i = 0; i < HERO_COUNT; i++) {
-    const r = Math.pow(Math.random(), 0.5) * 10;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-
-    const isTeal = Math.random() < 0.5;
-    const baseColor = isTeal ? TEAL.clone() : PURPLE.clone();
-    baseColor.offsetHSL(0, 0, (Math.random() - 0.5) * 0.15);
-
-    const size = 0.04 + Math.pow(Math.random(), 3) * 0.12;
-
-    const mat = new THREE.MeshPhongMaterial({
-      color: baseColor,
-      emissive: baseColor.clone().multiplyScalar(0.4),
-      shininess: 100,
-      transparent: true,
-      opacity: 0.6 + Math.random() * 0.4
-    });
-
-    const mesh = new THREE.Mesh(heroSphereGeo, mat);
-    mesh.scale.setScalar(size);
-
-    const x = r * Math.sin(phi) * Math.cos(theta);
-    const y = (Math.random() - 0.5) * 4;
-    const z = r * Math.sin(phi) * Math.sin(theta);
-    mesh.position.set(x, y, z);
-
-    heroParticles.push({
-      mesh,
-      basePos: new THREE.Vector3(x, y, z),
-      drift: new THREE.Vector3(
-        (Math.random() - 0.5) * 0.003,
-        (Math.random() - 0.5) * 0.002,
-        (Math.random() - 0.5) * 0.003
-      ),
-      phase: Math.random() * Math.PI * 2,
-      isTeal
-    });
-
-    scene.add(mesh);
-  }
-
-  /* ─── Lighting ─── */
-  const ambientLight = new THREE.AmbientLight(0x0A0F22, 0.8);
-  scene.add(ambientLight);
-
-  const tealLight = new THREE.PointLight(0x1AECBC, 2.0, 50);
-  tealLight.position.set(-12, 4, 6);
-  scene.add(tealLight);
-
-  const purpleLight = new THREE.PointLight(0x8B3FD9, 2.0, 50);
-  purpleLight.position.set(12, 4, 6);
-  scene.add(purpleLight);
-
-  const accentLight = new THREE.PointLight(0x4466FF, 0.8, 30);
-  accentLight.position.set(0, -3, 10);
-  scene.add(accentLight);
-
-  /* ─── Layer 4: Infinite 3D Grid Floor ─── */
+  /* ═══════════════════════════════════════════════════
+     INFINITE GRID FLOOR — the latent space
+     ═══════════════════════════════════════════════════ */
   const gridGroup = new THREE.Group();
-  gridGroup.position.y = -4.5;
-  gridGroup.rotation.x = 0; // flat on XZ plane
+  gridGroup.position.y = -8;
 
-  // Grid shader for fade-to-distance effect
-  const gridVertexShader = `
+  const gridVS = `
     varying vec3 vWorldPos;
     varying float vDist;
     void main() {
-      vec4 worldPos = modelMatrix * vec4(position, 1.0);
-      vWorldPos = worldPos.xyz;
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      vDist = length(mvPos.xyz);
-      gl_Position = projectionMatrix * mvPos;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorldPos = wp.xyz;
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vDist = length(mv.xyz);
+      gl_Position = projectionMatrix * mv;
     }
   `;
 
-  const gridFragmentShader = `
-    uniform vec3 uColor;
+  const gridFS = `
+    uniform vec3  uColor;
     uniform float uOpacity;
     uniform float uFadeStart;
     uniform float uFadeEnd;
-    varying vec3 vWorldPos;
+    varying vec3  vWorldPos;
     varying float vDist;
     void main() {
-      // Distance-based fade
-      float fadeFactor = 1.0 - smoothstep(uFadeStart, uFadeEnd, vDist);
-      // Also fade based on distance from center on XZ plane
-      float centerDist = length(vWorldPos.xz);
-      float centerFade = 1.0 - smoothstep(10.0, 55.0, centerDist);
-      float alpha = uOpacity * fadeFactor * centerFade;
-      if (alpha < 0.005) discard;
-      gl_FragColor = vec4(uColor, alpha);
+      float distFade   = 1.0 - smoothstep(uFadeStart, uFadeEnd, vDist);
+      float centerFade = 1.0 - smoothstep(12.0, 70.0, length(vWorldPos.xz));
+      float a = uOpacity * distFade * centerFade;
+      if (a < 0.004) discard;
+      gl_FragColor = vec4(uColor, a);
     }
   `;
 
-  // Main grid lines (sparser, more visible)
-  const gridSize = 120;
-  const gridStep = 2.0;
-  const mainGridGeo = new THREE.BufferGeometry();
-  const mainGridVerts = [];
-
-  for (let i = -gridSize / 2; i <= gridSize / 2; i += gridStep) {
-    // Lines along Z
-    mainGridVerts.push(-gridSize / 2, 0, i);
-    mainGridVerts.push(gridSize / 2, 0, i);
-    // Lines along X
-    mainGridVerts.push(i, 0, -gridSize / 2);
-    mainGridVerts.push(i, 0, gridSize / 2);
+  // Main grid
+  const GS = 160, GSTEP = 2.5;
+  const mgv = [];
+  for (let i = -GS / 2; i <= GS / 2; i += GSTEP) {
+    mgv.push(-GS / 2, 0, i, GS / 2, 0, i);
+    mgv.push(i, 0, -GS / 2, i, 0, GS / 2);
   }
+  const mgGeo = new THREE.BufferGeometry();
+  mgGeo.setAttribute('position', new THREE.Float32BufferAttribute(mgv, 3));
 
-  mainGridGeo.setAttribute('position', new THREE.Float32BufferAttribute(mainGridVerts, 3));
-
-  const mainGridMat = new THREE.ShaderMaterial({
+  const mgMat = new THREE.ShaderMaterial({
     uniforms: {
-      uColor: { value: new THREE.Color(0x1AECBC) },
-      uOpacity: { value: 0.08 },
-      uFadeStart: { value: 15.0 },
-      uFadeEnd: { value: 65.0 }
+      uColor:     { value: new THREE.Color(0x1AECBC) },
+      uOpacity:   { value: 0.07 },
+      uFadeStart: { value: 18.0 },
+      uFadeEnd:   { value: 80.0 }
     },
-    vertexShader: gridVertexShader,
-    fragmentShader: gridFragmentShader,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
+    vertexShader: gridVS, fragmentShader: gridFS,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
   });
+  gridGroup.add(new THREE.LineSegments(mgGeo, mgMat));
 
-  const mainGrid = new THREE.LineSegments(mainGridGeo, mainGridMat);
-  gridGroup.add(mainGrid);
-
-  // Sub-grid lines (finer, more subtle)
-  const subGridStep = 0.5;
-  const subGridGeo = new THREE.BufferGeometry();
-  const subGridVerts = [];
-
-  for (let i = -gridSize / 2; i <= gridSize / 2; i += subGridStep) {
-    // Skip positions that overlap with main grid
-    if (Math.abs(i % gridStep) < 0.01) continue;
-    subGridVerts.push(-gridSize / 2, 0, i);
-    subGridVerts.push(gridSize / 2, 0, i);
-    subGridVerts.push(i, 0, -gridSize / 2);
-    subGridVerts.push(i, 0, gridSize / 2);
+  // Sub grid
+  const SGSTEP = 0.5;
+  const sgv = [];
+  for (let i = -GS / 2; i <= GS / 2; i += SGSTEP) {
+    if (Math.abs(i % GSTEP) < 0.01) continue;
+    sgv.push(-GS / 2, 0, i, GS / 2, 0, i);
+    sgv.push(i, 0, -GS / 2, i, 0, GS / 2);
   }
+  const sgGeo = new THREE.BufferGeometry();
+  sgGeo.setAttribute('position', new THREE.Float32BufferAttribute(sgv, 3));
 
-  subGridGeo.setAttribute('position', new THREE.Float32BufferAttribute(subGridVerts, 3));
-
-  const subGridMat = new THREE.ShaderMaterial({
+  const sgMat = new THREE.ShaderMaterial({
     uniforms: {
-      uColor: { value: new THREE.Color(0x1AECBC) },
-      uOpacity: { value: 0.025 },
-      uFadeStart: { value: 8.0 },
-      uFadeEnd: { value: 35.0 }
+      uColor:     { value: new THREE.Color(0x1AECBC) },
+      uOpacity:   { value: 0.02 },
+      uFadeStart: { value: 10.0 },
+      uFadeEnd:   { value: 40.0 }
     },
-    vertexShader: gridVertexShader,
-    fragmentShader: gridFragmentShader,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
+    vertexShader: gridVS, fragmentShader: gridFS,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
   });
-
-  const subGrid = new THREE.LineSegments(subGridGeo, subGridMat);
-  gridGroup.add(subGrid);
+  gridGroup.add(new THREE.LineSegments(sgGeo, sgMat));
 
   scene.add(gridGroup);
 
@@ -1342,113 +1205,70 @@ section {
   let targetSpeed = 1.0;
   let currentSpeed = 1.0;
 
-  /* ─── Animation loop ─── */
+  /* ═══════════════════════════════════════════════════
+     ANIMATION LOOP
+     ═══════════════════════════════════════════════════ */
   let time = 0;
-  const tempVec = new THREE.Vector3();
 
   function animate() {
     requestAnimationFrame(animate);
     time += 0.016;
 
-    // Smooth scroll-based transitions
     currentPurpleRatio += (targetPurpleRatio - currentPurpleRatio) * 0.015;
     currentSpeed += (targetSpeed - currentSpeed) * 0.015;
 
-    // Breathing effect
-    const breath = 1 + Math.sin(time * 1.57) * 0.02;
+    particleMat.uniforms.uTime.value = time;
 
-    // ── Update core particles ──
-    const posArr = coreGeo.attributes.position.array;
-    const colArr = coreGeo.attributes.color.array;
+    // ── Update particles: curl noise + wrapping ──
+    const p = geo.attributes.position.array;
+    const c = geo.attributes.color.array;
+    const dp = geo.attributes.aDepth.array;
 
-    for (let i = 0; i < CORE_COUNT; i++) {
+    for (let i = 0; i < COUNT; i++) {
       const i3 = i * 3;
+      const x = p[i3], y = p[i3 + 1], z = p[i3 + 2];
+      const depth = dp[i];
 
-      // Drift
-      posArr[i3]     += coreDrift[i].x * currentSpeed;
-      posArr[i3 + 1] += coreDrift[i].y * currentSpeed;
-      posArr[i3 + 2] += coreDrift[i].z * currentSpeed;
+      // Parallax: near particles move faster
+      const speed = (1.0 - depth * 0.75) * 0.018 * currentSpeed;
 
-      // Wobble
-      posArr[i3 + 1] += Math.sin(time * 0.4 + i * 0.7) * 0.0008;
+      // Curl noise flow
+      const curl = curlNoise(x, y, z, time);
+      p[i3]     += curl.x * speed;
+      p[i3 + 1] += curl.y * speed * 0.6; // less vertical motion
+      p[i3 + 2] += curl.z * speed;
 
-      // Soft boundary
-      tempVec.set(posArr[i3], posArr[i3 + 1], posArr[i3 + 2]);
-      const dist = tempVec.distanceTo(coreBasePos[i]);
-      if (dist > 2.5) {
-        posArr[i3]     += (coreBasePos[i].x - posArr[i3]) * 0.008;
-        posArr[i3 + 1] += (coreBasePos[i].y - posArr[i3 + 1]) * 0.008;
-        posArr[i3 + 2] += (coreBasePos[i].z - posArr[i3 + 2]) * 0.008;
-      }
+      // Infinite wrapping
+      if (p[i3]     >  HX) p[i3]     -= BX;
+      if (p[i3]     < -HX) p[i3]     += BX;
+      if (p[i3 + 1] >  HY) p[i3 + 1] -= BY;
+      if (p[i3 + 1] < -HY) p[i3 + 1] += BY;
+      if (p[i3 + 2] >  HZ + Z_OFFSET) p[i3 + 2] -= BZ;
+      if (p[i3 + 2] < -HZ + Z_OFFSET) p[i3 + 2] += BZ;
 
-      // Color shift based on scroll
-      const shouldBePurple = (i / CORE_COUNT) < currentPurpleRatio;
-      const target = shouldBePurple ? PURPLE : TEAL;
-      colArr[i3]     += (target.r - colArr[i3]) * 0.008;
-      colArr[i3 + 1] += (target.g - colArr[i3 + 1]) * 0.008;
-      colArr[i3 + 2] += (target.b - colArr[i3 + 2]) * 0.008;
+      // Color shift: scroll-based teal ↔ purple
+      const shouldBePurple = (i / COUNT) < currentPurpleRatio;
+      const tgt = shouldBePurple ? PURPLE : TEAL;
+      c[i3]     += (tgt.r - c[i3])     * 0.006;
+      c[i3 + 1] += (tgt.g - c[i3 + 1]) * 0.006;
+      c[i3 + 2] += (tgt.b - c[i3 + 2]) * 0.006;
     }
 
-    coreGeo.attributes.position.needsUpdate = true;
-    coreGeo.attributes.color.needsUpdate = true;
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
 
-    // ── Update haze particles ──
-    const hazePosArr = hazeGeo.attributes.position.array;
-    for (let i = 0; i < HAZE_COUNT; i++) {
-      const i3 = i * 3;
-      hazePosArr[i3]     += hazeDrift[i].x;
-      hazePosArr[i3 + 1] += hazeDrift[i].y + Math.sin(time * 0.2 + i) * 0.0003;
-      hazePosArr[i3 + 2] += hazeDrift[i].z;
+    // ── Grid animation ──
+    gridGroup.position.z = ((time * 0.02) % GSTEP);
+    const gPulse = 0.055 + Math.sin(time * 0.25) * 0.02;
+    mgMat.uniforms.uOpacity.value = gPulse;
+    const gc = new THREE.Color().lerpColors(TEAL, PURPLE, currentPurpleRatio * 0.4);
+    mgMat.uniforms.uColor.value.copy(gc);
+    sgMat.uniforms.uColor.value.copy(gc);
 
-      tempVec.set(hazePosArr[i3], hazePosArr[i3 + 1], hazePosArr[i3 + 2]);
-      if (tempVec.distanceTo(hazeBasePos[i]) > 3) {
-        hazePosArr[i3]     += (hazeBasePos[i].x - hazePosArr[i3]) * 0.005;
-        hazePosArr[i3 + 1] += (hazeBasePos[i].y - hazePosArr[i3 + 1]) * 0.005;
-        hazePosArr[i3 + 2] += (hazeBasePos[i].z - hazePosArr[i3 + 2]) * 0.005;
-      }
-    }
-    hazeGeo.attributes.position.needsUpdate = true;
-
-    // ── Update hero spheres ──
-    for (let i = 0; i < heroParticles.length; i++) {
-      const p = heroParticles[i];
-      p.mesh.position.x += p.drift.x * currentSpeed;
-      p.mesh.position.y += p.drift.y * currentSpeed + Math.sin(time * 0.5 + p.phase) * 0.001;
-      p.mesh.position.z += p.drift.z * currentSpeed;
-
-      const d = p.mesh.position.distanceTo(p.basePos);
-      if (d > 2) p.mesh.position.lerp(p.basePos, 0.006);
-
-      // Subtle pulse
-      const pulse = 1 + Math.sin(time * 1.2 + p.phase) * 0.15;
-      p.mesh.material.emissiveIntensity = pulse * 0.4;
-    }
-
-    // ── Move lights gently ──
-    tealLight.position.x = -12 + Math.sin(time * 0.15) * 4;
-    tealLight.position.y = 4 + Math.sin(time * 0.12) * 2;
-    purpleLight.position.x = 12 + Math.cos(time * 0.13) * 4;
-    purpleLight.position.y = 4 + Math.cos(time * 0.1) * 2;
-
-    // ── Animate grid (infinite scroll illusion) ──
-    const gridScrollSpeed = 0.015;
-    gridGroup.position.z = ((time * gridScrollSpeed) % 2.0);
-    // Subtle color pulse on the main grid
-    const gridPulse = 0.06 + Math.sin(time * 0.3) * 0.02;
-    mainGridMat.uniforms.uOpacity.value = gridPulse;
-    // Tint grid toward purple based on scroll state
-    const gridColor = new THREE.Color().lerpColors(TEAL, PURPLE, currentPurpleRatio * 0.5);
-    mainGridMat.uniforms.uColor.value.copy(gridColor);
-    subGridMat.uniforms.uColor.value.copy(gridColor);
-
-    // ── Camera drift ──
-    camera.position.x = Math.sin(time * 0.08) * 0.6;
-    camera.position.y = 1.5 + Math.sin(time * 0.06) * 0.4;
-    camera.lookAt(0, 0, 0);
-
-    // ── Breathing scale on core ──
-    corePoints.scale.setScalar(breath);
-    hazePoints.scale.setScalar(breath);
+    // ── Camera: slow organic drift ──
+    camera.position.x = Math.sin(time * 0.05) * 1.5;
+    camera.position.y = 3 + Math.sin(time * 0.035) * 1.0;
+    camera.lookAt(0, -1, 0);
 
     renderer.render(scene, camera);
   }

@@ -1353,15 +1353,13 @@ section {
   let time = 0;
 
   // Mouse interaction constants
-  const CURIOUS_RADIUS = 18;   // particles notice the mouse at this range
-  const SCARED_RADIUS = 5;     // particles flee inside this range
-  const CURIOUS_STRENGTH = 0.06; // gentle attraction
-  const SCARED_STRENGTH = 0.35;  // quick flee
-  const VEL_DAMPING = 0.92;     // velocity friction
+  const CURIOUS_RADIUS = 28;     // particles notice the mouse from far
+  const CURIOUS_STRENGTH = 0.03; // very gentle attraction
+  const VEL_DAMPING = 0.96;     // slow drift, takes time to settle
 
   function animate() {
     requestAnimationFrame(animate);
-    time += 0.016;
+    time += 0.008;
 
     currentPurpleRatio += (targetPurpleRatio - currentPurpleRatio) * 0.015;
     currentSpeed += (targetSpeed - currentSpeed) * 0.015;
@@ -1380,33 +1378,23 @@ section {
       const x = p[i3], y = p[i3 + 1], z = p[i3 + 2];
       const depth = dp[i];
 
-      // ── Curl noise motion ──
-      const speed = (1.0 - depth * 0.7) * 0.012 * currentSpeed;
+      // ── Curl noise motion — slow, dreamy ──
+      const speed = (1.0 - depth * 0.7) * 0.004 * currentSpeed;
       const curl = curlNoise(x, y, z, time);
       vel[i3]     += curl.x * speed;
-      vel[i3 + 1] += curl.y * speed * 0.5;
+      vel[i3 + 1] += curl.y * speed * 0.4;
       vel[i3 + 2] += curl.z * speed;
 
-      // ── Mouse interaction: curious + scared ──
+      // ── Mouse interaction: all curious ──
       if (mouseActive) {
         const dx = mx - x, dy = my - y, dz = mz - z;
-        const distSq = dx * dx + dy * dy + dz * dz;
-        const dist = Math.sqrt(distSq) + 0.001;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.001;
 
         if (dist < CURIOUS_RADIUS) {
-          if (dist < SCARED_RADIUS) {
-            // SCARED — flee away from mouse
-            const flee = SCARED_STRENGTH * (1 - dist / SCARED_RADIUS);
-            vel[i3]     -= (dx / dist) * flee;
-            vel[i3 + 1] -= (dy / dist) * flee;
-            vel[i3 + 2] -= (dz / dist) * flee * 0.3;
-          } else {
-            // CURIOUS — gently drift toward mouse
-            const curiosity = CURIOUS_STRENGTH * (1 - (dist - SCARED_RADIUS) / (CURIOUS_RADIUS - SCARED_RADIUS));
-            vel[i3]     += (dx / dist) * curiosity;
-            vel[i3 + 1] += (dy / dist) * curiosity;
-            vel[i3 + 2] += (dz / dist) * curiosity * 0.15;
-          }
+          const curiosity = CURIOUS_STRENGTH * (1 - dist / CURIOUS_RADIUS);
+          vel[i3]     += (dx / dist) * curiosity;
+          vel[i3 + 1] += (dy / dist) * curiosity;
+          vel[i3 + 2] += (dz / dist) * curiosity * 0.1;
         }
       }
 

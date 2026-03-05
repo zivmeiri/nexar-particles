@@ -929,44 +929,34 @@ section {
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isLowPower = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
 
-  /* ─── Procedural particle texture: grainy luminous dust ─── */
+  /* ─── Particle texture: hard physical speck, not a digital halo ─── */
   function createParticleTexture(size) {
     const c = document.createElement('canvas');
     c.width = size; c.height = size;
     const ctx = c.getContext('2d');
     const h = size / 2;
 
-    // Base soft radial glow
+    // Hard circle with a tight soft edge — like a grain of sand, not a glow
     const g = ctx.createRadialGradient(h, h, 0, h, h, h);
     g.addColorStop(0.0,  'rgba(255,255,255,1.0)');
-    g.addColorStop(0.05, 'rgba(255,255,255,0.98)');
-    g.addColorStop(0.12, 'rgba(255,255,255,0.85)');
-    g.addColorStop(0.22, 'rgba(255,255,255,0.55)');
-    g.addColorStop(0.35, 'rgba(255,255,255,0.25)');
-    g.addColorStop(0.5,  'rgba(255,255,255,0.08)');
-    g.addColorStop(0.7,  'rgba(255,255,255,0.02)');
+    g.addColorStop(0.25, 'rgba(255,255,255,1.0)');
+    g.addColorStop(0.4,  'rgba(255,255,255,0.9)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.5)');
+    g.addColorStop(0.7,  'rgba(255,255,255,0.1)');
+    g.addColorStop(0.85, 'rgba(255,255,255,0.0)');
     g.addColorStop(1.0,  'rgba(255,255,255,0.0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
 
-    // Add grain/noise for tactile felt quality
+    // Add grain — surface noise for tactile feel
     const imgData = ctx.getImageData(0, 0, size, size);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
-      const px = (i / 4) % size;
-      const py = Math.floor((i / 4) / size);
-      const dx = px - h, dy = py - h;
-      const dist = Math.sqrt(dx * dx + dy * dy) / h;
-
-      // Only add grain within the visible radius
-      if (dist < 0.65 && d[i + 3] > 5) {
-        const noise = (Math.random() - 0.5) * 55 * (1 - dist);
+      if (d[i + 3] > 10) {
+        const noise = (Math.random() - 0.5) * 40;
         d[i]     = Math.max(0, Math.min(255, d[i] + noise));
         d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + noise));
         d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + noise));
-        // Slight alpha variation for organic edge
-        const aNoise = (Math.random() - 0.5) * 20 * dist;
-        d[i + 3] = Math.max(0, Math.min(255, d[i + 3] + aNoise));
       }
     }
     ctx.putImageData(imgData, 0, 0);
@@ -974,31 +964,14 @@ section {
     return new THREE.CanvasTexture(c);
   }
 
-  // Soft glow halo texture (for the larger glow layer)
-  function createGlowTexture(size) {
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size;
-    const ctx = c.getContext('2d');
-    const h = size / 2;
-    const g = ctx.createRadialGradient(h, h, 0, h, h, h);
-    g.addColorStop(0.0, 'rgba(255,255,255,0.4)');
-    g.addColorStop(0.15, 'rgba(255,255,255,0.15)');
-    g.addColorStop(0.4, 'rgba(255,255,255,0.04)');
-    g.addColorStop(0.7, 'rgba(255,255,255,0.005)');
-    g.addColorStop(1.0, 'rgba(255,255,255,0.0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
-    return new THREE.CanvasTexture(c);
-  }
-
-  const particleTex = createParticleTexture(128);
-  const glowTex = createGlowTexture(64);
+  const particleTex = createParticleTexture(64);
 
   /* ─── Scene setup ─── */
   const canvas = document.getElementById('webgl-canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
 
@@ -1041,11 +1014,10 @@ section {
   /* ═══════════════════════════════════════════════════
      PARTICLE FIELD — infinite, depth-varied
      ═══════════════════════════════════════════════════ */
-  // Dense particle field — reference images show thousands of tiny luminous specks
-  const COUNT = isLowPower ? 2500 : 6000;
+  // Very dense — physical powder, not digital sparkles
+  const COUNT = isLowPower ? 4000 : 10000;
 
-  // Bounding volume for infinite wrapping
-  const BX = 70, BY = 35, BZ = 100;
+  const BX = 65, BY = 30, BZ = 90;
   const HX = BX / 2, HY = BY / 2, HZ = BZ / 2;
   const Z_OFFSET = -10;
 
@@ -1057,61 +1029,42 @@ section {
   const aPhase = new Float32Array(COUNT);
 
   for (let i = 0; i < COUNT; i++) {
-    // Distribute with slight central bias for denser core feel
-    const spread = 0.7 + Math.random() * 0.3;
-    pos[i * 3]     = (Math.random() - 0.5) * BX * spread;
-    pos[i * 3 + 1] = (Math.random() - 0.5) * BY * spread;
+    pos[i * 3]     = (Math.random() - 0.5) * BX;
+    pos[i * 3 + 1] = (Math.random() - 0.5) * BY;
     pos[i * 3 + 2] = (Math.random() - 0.5) * BZ + Z_OFFSET;
 
     const d = Math.random();
     aDepth[i] = d;
 
-    // Size distribution: mostly tiny dust, some medium, very few large
-    // This creates the powder/grain feel from the reference images
-    const sizeRoll = Math.random();
-    if (sizeRoll < 0.55) {
-      // Tiny dust — majority of particles
-      aSize[i] = 0.03 + Math.random() * 0.1;
-    } else if (sizeRoll < 0.82) {
-      // Small grains
-      aSize[i] = 0.1 + Math.random() * 0.25;
-    } else if (sizeRoll < 0.95) {
-      // Medium luminous specks
-      aSize[i] = 0.25 + Math.random() * 0.45;
-    } else {
-      // Rare larger particles (like bright bokeh spots)
-      aSize[i] = 0.5 + Math.random() * 0.6;
-    }
+    // Overwhelmingly small — like sand/powder
+    const r = Math.random();
+    if (r < 0.65)      aSize[i] = 0.04 + Math.random() * 0.08;  // fine dust
+    else if (r < 0.88) aSize[i] = 0.08 + Math.random() * 0.15;  // grains
+    else if (r < 0.97) aSize[i] = 0.15 + Math.random() * 0.25;  // specks
+    else                aSize[i] = 0.3  + Math.random() * 0.3;   // rare bright
 
-    // Color — reference images show teal, purple, green gradients with smooth blending
+    // Color — teal, purple, green with smooth spatial blending
+    const px = pos[i * 3], pz = pos[i * 3 + 2];
+    const spatialT = (Math.atan2(pz - Z_OFFSET, px) / Math.PI + 1) * 0.5; // 0..1 angular
     const t = Math.random();
     const c = new THREE.Color();
-    if (t < 0.30) {
-      c.copy(TEAL);
-    } else if (t < 0.55) {
-      c.copy(PURPLE);
-    } else if (t < 0.75) {
-      c.copy(GREEN);
-    } else if (t < 0.88) {
-      // Blended intermediates for smooth color transitions
-      c.copy(TEAL).lerp(PURPLE, Math.random());
-    } else if (t < 0.95) {
-      c.copy(GREEN).lerp(BLUE, Math.random());
-    } else {
-      c.copy(ORANGE);
-    }
 
-    // Per-particle hue/sat/lum variation for organic feel
+    if (t < 0.28)      c.copy(TEAL);
+    else if (t < 0.52) c.copy(PURPLE);
+    else if (t < 0.72) c.copy(GREEN);
+    else if (t < 0.85) c.lerpColors(TEAL, PURPLE, spatialT);
+    else if (t < 0.93) c.lerpColors(GREEN, BLUE, Math.random());
+    else                c.copy(ORANGE);
+
     c.offsetHSL(
+      (Math.random() - 0.5) * 0.06,
       (Math.random() - 0.5) * 0.08,
-      (Math.random() - 0.5) * 0.1,
-      (Math.random() - 0.5) * 0.15
+      (Math.random() - 0.5) * 0.1
     );
 
     col[i * 3]     = c.r;
     col[i * 3 + 1] = c.g;
     col[i * 3 + 2] = c.b;
-
     aPhase[i] = Math.random() * Math.PI * 2;
   }
 
@@ -1121,7 +1074,7 @@ section {
   geo.setAttribute('aDepth',   new THREE.BufferAttribute(aDepth, 1));
   geo.setAttribute('aPhase',   new THREE.BufferAttribute(aPhase, 1));
 
-  /* ─── Particle shaders ─── */
+  /* ─── Particle shaders — physical material, not digital glow ─── */
   const particleVert = `
     attribute float aSize;
     attribute float aDepth;
@@ -1132,7 +1085,6 @@ section {
 
     varying vec3  vColor;
     varying float vAlpha;
-    varying float vDoF; // 0 = in focus, 1 = max blur
 
     void main() {
       vColor = color;
@@ -1140,29 +1092,22 @@ section {
       vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
       float dist = -mvPos.z;
 
-      // Perspective sizing
-      float pSize = aSize * (350.0 / max(dist, 1.0));
+      // Perspective sizing — tight, no inflation
+      float pSize = aSize * (280.0 / max(dist, 1.0));
 
-      // Depth-of-field: enlarge out-of-focus particles (bokeh)
-      float focusDelta = abs(dist - uFocusDist);
-      float dof = smoothstep(0.0, 35.0, focusDelta);
-      vDoF = dof;
-
-      // Bokeh: out-of-focus particles grow and get softer
-      float dofScale = 1.0 + dof * 1.2;
-      pSize *= dofScale;
-
-      gl_PointSize = clamp(pSize, 0.5, 80.0);
+      // NO DoF enlargement — keep particles sharp and small
+      gl_PointSize = clamp(pSize, 0.5, 32.0);
 
       // Distance fade
-      float farFade  = 1.0 - smoothstep(45.0, 110.0, dist);
-      float nearFade = smoothstep(0.3, 4.0, dist);
+      float farFade  = 1.0 - smoothstep(40.0, 100.0, dist);
+      float nearFade = smoothstep(0.5, 4.0, dist);
 
-      // Out-of-focus dimming — subtle
-      float dofDim = 1.0 - dof * 0.25;
+      // Depth of field: dim out-of-focus, don't enlarge
+      float focusDelta = abs(dist - uFocusDist);
+      float dofDim = 1.0 - smoothstep(0.0, 35.0, focusDelta) * 0.5;
 
-      // Twinkle — subtle shimmer
-      float twinkle = 0.88 + 0.12 * sin(uTime * 0.9 + aPhase * 6.28);
+      // Subtle shimmer
+      float twinkle = 0.9 + 0.1 * sin(uTime * 0.8 + aPhase * 6.28);
 
       vAlpha = farFade * nearFade * dofDim * twinkle;
 
@@ -1174,22 +1119,14 @@ section {
     uniform sampler2D uTexture;
     varying vec3  vColor;
     varying float vAlpha;
-    varying float vDoF;
 
     void main() {
       vec4 tex = texture2D(uTexture, gl_PointCoord);
       float alpha = tex.a * vAlpha;
+      if (alpha < 0.01) discard;
 
-      if (alpha < 0.002) discard;
-
-      // Core brightness — in-focus particles are brighter and more defined
-      float coreBright = 1.2 - vDoF * 0.3;
-      vec3 finalColor = vColor * coreBright;
-
-      // Out-of-focus particles: softer, more spread (lower alpha but larger size)
-      float finalAlpha = alpha * (0.9 - vDoF * 0.3);
-
-      gl_FragColor = vec4(finalColor, finalAlpha);
+      // Bright saturated color — physical material, not washed-out glow
+      gl_FragColor = vec4(vColor * 1.3, alpha);
     }
   `;
 
@@ -1203,97 +1140,13 @@ section {
     fragmentShader: particleFrag,
     vertexColors:   true,
     transparent:    true,
-    blending:       THREE.AdditiveBlending,
+    blending:       THREE.NormalBlending,   // PHYSICAL — not additive glow
     depthWrite:     false,
     depthTest:      true
   });
 
   const particles = new THREE.Points(geo, particleMat);
   scene.add(particles);
-
-  /* ─── Glow layer: larger, softer halos beneath for atmosphere ─── */
-  const GLOW_COUNT = isLowPower ? 300 : 600;
-  const glowGeo = new THREE.BufferGeometry();
-  const glowPos   = new Float32Array(GLOW_COUNT * 3);
-  const glowCol   = new Float32Array(GLOW_COUNT * 3);
-  const glowSizes = new Float32Array(GLOW_COUNT);
-  const glowPhase = new Float32Array(GLOW_COUNT);
-
-  for (let i = 0; i < GLOW_COUNT; i++) {
-    glowPos[i * 3]     = (Math.random() - 0.5) * BX * 0.8;
-    glowPos[i * 3 + 1] = (Math.random() - 0.5) * BY * 0.7;
-    glowPos[i * 3 + 2] = (Math.random() - 0.5) * BZ * 0.7 + Z_OFFSET;
-
-    glowSizes[i] = 1.5 + Math.random() * 3.5;
-
-    // Color from same palette, slightly desaturated
-    const t = Math.random();
-    const c = new THREE.Color();
-    if (t < 0.35)      c.copy(TEAL);
-    else if (t < 0.65) c.copy(PURPLE);
-    else if (t < 0.85) c.copy(GREEN);
-    else                c.copy(BLUE);
-    c.offsetHSL(0, -0.15, -0.05);
-
-    glowCol[i * 3]     = c.r;
-    glowCol[i * 3 + 1] = c.g;
-    glowCol[i * 3 + 2] = c.b;
-    glowPhase[i] = Math.random() * Math.PI * 2;
-  }
-
-  glowGeo.setAttribute('position', new THREE.BufferAttribute(glowPos, 3));
-  glowGeo.setAttribute('color',    new THREE.BufferAttribute(glowCol, 3));
-  glowGeo.setAttribute('aSize',    new THREE.BufferAttribute(glowSizes, 1));
-  glowGeo.setAttribute('aPhase',   new THREE.BufferAttribute(glowPhase, 1));
-
-  const glowVert = `
-    attribute float aSize;
-    attribute float aPhase;
-    uniform float uTime;
-    varying vec3  vColor;
-    varying float vAlpha;
-    void main() {
-      vColor = color;
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      float dist = -mvPos.z;
-      float pSize = aSize * (300.0 / max(dist, 1.0));
-      gl_PointSize = clamp(pSize, 1.0, 120.0);
-      float farFade  = 1.0 - smoothstep(40.0, 90.0, dist);
-      float nearFade = smoothstep(2.0, 10.0, dist);
-      float pulse = 0.7 + 0.3 * sin(uTime * 0.4 + aPhase * 6.28);
-      vAlpha = farFade * nearFade * pulse * 0.08;
-      gl_Position = projectionMatrix * mvPos;
-    }
-  `;
-
-  const glowFrag = `
-    uniform sampler2D uTexture;
-    varying vec3  vColor;
-    varying float vAlpha;
-    void main() {
-      vec4 tex = texture2D(uTexture, gl_PointCoord);
-      float alpha = tex.a * vAlpha;
-      if (alpha < 0.001) discard;
-      gl_FragColor = vec4(vColor, alpha);
-    }
-  `;
-
-  const glowMat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTexture: { value: glowTex },
-      uTime:    { value: 0 }
-    },
-    vertexShader:   glowVert,
-    fragmentShader: glowFrag,
-    vertexColors:   true,
-    transparent:    true,
-    blending:       THREE.AdditiveBlending,
-    depthWrite:     false,
-    depthTest:      false
-  });
-
-  const glowParticles = new THREE.Points(glowGeo, glowMat);
-  scene.add(glowParticles);
 
   /* ═══════════════════════════════════════════════════
      INFINITE GRID FLOOR — the latent space
@@ -1399,9 +1252,8 @@ section {
     currentSpeed += (targetSpeed - currentSpeed) * 0.015;
 
     particleMat.uniforms.uTime.value = time;
-    glowMat.uniforms.uTime.value = time;
 
-    // ── Update main particles: curl noise + wrapping ──
+    // ── Update particles: curl noise + wrapping ──
     const p = geo.attributes.position.array;
     const c = geo.attributes.color.array;
     const dp = geo.attributes.aDepth.array;
@@ -1437,24 +1289,6 @@ section {
 
     geo.attributes.position.needsUpdate = true;
     geo.attributes.color.needsUpdate = true;
-
-    // ── Update glow layer: slow drift ──
-    const gp = glowGeo.attributes.position.array;
-    for (let i = 0; i < GLOW_COUNT; i++) {
-      const i3 = i * 3;
-      const curl = curlNoise(gp[i3], gp[i3+1], gp[i3+2], time * 0.7);
-      gp[i3]     += curl.x * 0.008;
-      gp[i3 + 1] += curl.y * 0.004;
-      gp[i3 + 2] += curl.z * 0.008;
-
-      if (gp[i3]     >  HX*0.8)  gp[i3]     -= BX*0.8;
-      if (gp[i3]     < -HX*0.8)  gp[i3]     += BX*0.8;
-      if (gp[i3 + 1] >  HY*0.7)  gp[i3 + 1] -= BY*0.7;
-      if (gp[i3 + 1] < -HY*0.7)  gp[i3 + 1] += BY*0.7;
-      if (gp[i3 + 2] >  HZ*0.7+Z_OFFSET) gp[i3 + 2] -= BZ*0.7;
-      if (gp[i3 + 2] < -HZ*0.7+Z_OFFSET) gp[i3 + 2] += BZ*0.7;
-    }
-    glowGeo.attributes.position.needsUpdate = true;
 
     // ── Grid animation ──
     gridGroup.position.z = ((time * 0.015) % GSTEP);

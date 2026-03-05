@@ -1349,68 +1349,23 @@ section {
   });
 
   /* ═══════════════════════════════════════════════════
-     CLUSTER ATTRACTORS — particles want to meet
-     Slow-drifting anchor points that particles gently
-     pull toward, forming and reforming organic clusters.
-     ═══════════════════════════════════════════════════ */
-  const NUM_CLUSTERS = 24;
-  const clusterPos = new Float32Array(NUM_CLUSTERS * 3);
-  const clusterVel = new Float32Array(NUM_CLUSTERS * 3);
-  // Initial cluster positions spread through the volume
-  for (let i = 0; i < NUM_CLUSTERS; i++) {
-    clusterPos[i * 3]     = (Math.random() - 0.5) * BX * 0.7;
-    clusterPos[i * 3 + 1] = (Math.random() - 0.5) * BY * 0.7;
-    clusterPos[i * 3 + 2] = (Math.random() - 0.5) * BZ * 0.5 + Z_OFFSET;
-  }
-  // Assign each particle to a home cluster (nearest at start, but drifts)
-  const homeCluster = new Int32Array(COUNT);
-  for (let i = 0; i < COUNT; i++) {
-    homeCluster[i] = Math.floor(Math.random() * NUM_CLUSTERS);
-  }
-
-  /* ═══════════════════════════════════════════════════
      ANIMATION LOOP
      ═══════════════════════════════════════════════════ */
   let time = 0;
 
   // Mouse interaction constants
-  const CURIOUS_RADIUS = 28;       // particles notice the mouse from far
-  const CURIOUS_STRENGTH = 0.02;   // gentle attraction
-  const VEL_DAMPING = 0.97;        // slow drift, takes time to settle
-
-  // Cluster attraction
-  const CLUSTER_STRENGTH = 0.0008; // very gentle pull toward cluster center
-  const CLUSTER_RADIUS = 18;       // how close particles try to get
+  const CURIOUS_RADIUS = 28;
+  const CURIOUS_STRENGTH = 0.03;
+  const VEL_DAMPING = 0.96;
 
   function animate() {
     requestAnimationFrame(animate);
-    time += 0.004; // very slow time progression
+    time += 0.008;
 
     currentPurpleRatio += (targetPurpleRatio - currentPurpleRatio) * 0.015;
     currentSpeed += (targetSpeed - currentSpeed) * 0.015;
 
     particleMat.uniforms.uTime.value = time;
-
-    // ── Drift cluster centers slowly via curl noise ──
-    for (let k = 0; k < NUM_CLUSTERS; k++) {
-      const k3 = k * 3;
-      const cx = clusterPos[k3], cy = clusterPos[k3 + 1], cz = clusterPos[k3 + 2];
-      const curl = curlNoise(cx * 0.5, cy * 0.5, cz * 0.5, time * 0.5 + k * 2.0);
-      clusterVel[k3]     += curl.x * 0.0006;
-      clusterVel[k3 + 1] += curl.y * 0.0003;
-      clusterVel[k3 + 2] += curl.z * 0.0006;
-      // Gentle pull toward center so clusters don't drift away
-      clusterVel[k3]     -= clusterPos[k3] * 0.00003;
-      clusterVel[k3 + 1] -= clusterPos[k3 + 1] * 0.00003;
-      clusterVel[k3 + 2] -= (clusterPos[k3 + 2] - Z_OFFSET) * 0.00003;
-      // Damping
-      clusterVel[k3]     *= 0.98;
-      clusterVel[k3 + 1] *= 0.98;
-      clusterVel[k3 + 2] *= 0.98;
-      clusterPos[k3]     += clusterVel[k3];
-      clusterPos[k3 + 1] += clusterVel[k3 + 1];
-      clusterPos[k3 + 2] += clusterVel[k3 + 2];
-    }
 
     const p = geo.attributes.position.array;
     const c = geo.attributes.color.array;
@@ -1424,40 +1379,14 @@ section {
       const x = p[i3], y = p[i3 + 1], z = p[i3 + 2];
       const depth = dp[i];
 
-      // ── Curl noise motion — very slow, dreamy ──
-      const speed = (1.0 - depth * 0.7) * 0.0015 * currentSpeed;
+      // Curl noise motion - slow, dreamy
+      const speed = (1.0 - depth * 0.7) * 0.004 * currentSpeed;
       const curl = curlNoise(x, y, z, time);
       vel[i3]     += curl.x * speed;
-      vel[i3 + 1] += curl.y * speed * 0.3;
+      vel[i3 + 1] += curl.y * speed * 0.4;
       vel[i3 + 2] += curl.z * speed;
 
-      // ── Cluster attraction: particles gently pull toward their cluster ──
-      const hc = homeCluster[i];
-      const h3 = hc * 3;
-      const cdx = clusterPos[h3] - x;
-      const cdy = clusterPos[h3 + 1] - y;
-      const cdz = clusterPos[h3 + 2] - z;
-      const cdist = Math.sqrt(cdx * cdx + cdy * cdy + cdz * cdz) + 0.01;
-      // Pull is stronger when farther from cluster, fades when close
-      if (cdist > CLUSTER_RADIUS) {
-        const pull = CLUSTER_STRENGTH * Math.min((cdist - CLUSTER_RADIUS) * 0.1, 1.0);
-        vel[i3]     += (cdx / cdist) * pull;
-        vel[i3 + 1] += (cdy / cdist) * pull;
-        vel[i3 + 2] += (cdz / cdist) * pull;
-      }
-
-      // Occasionally reassign to a nearer cluster (creates merging/splitting)
-      if (Math.random() < 0.0001) {
-        let bestDist = cdist, bestK = hc;
-        for (let k = 0; k < NUM_CLUSTERS; k++) {
-          const kx = clusterPos[k * 3] - x, ky = clusterPos[k * 3 + 1] - y, kz = clusterPos[k * 3 + 2] - z;
-          const kd = Math.sqrt(kx * kx + ky * ky + kz * kz);
-          if (kd < bestDist) { bestDist = kd; bestK = k; }
-        }
-        homeCluster[i] = bestK;
-      }
-
-      // ── Mouse interaction: all curious ──
+      // Mouse interaction: all curious
       if (mouseActive) {
         const dx = mx - x, dy = my - y, dz = mz - z;
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.001;
@@ -1470,7 +1399,7 @@ section {
         }
       }
 
-      // ── Apply velocity with damping ──
+      // Apply velocity with damping
       vel[i3]     *= VEL_DAMPING;
       vel[i3 + 1] *= VEL_DAMPING;
       vel[i3 + 2] *= VEL_DAMPING;
@@ -1479,7 +1408,7 @@ section {
       p[i3 + 1] += vel[i3 + 1];
       p[i3 + 2] += vel[i3 + 2];
 
-      // ── Infinite wrapping ──
+      // Infinite wrapping
       if (p[i3]     >  HX) p[i3]     -= BX;
       if (p[i3]     < -HX) p[i3]     += BX;
       if (p[i3 + 1] >  HY) p[i3 + 1] -= BY;

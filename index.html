@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Nexar Particles - Visual Identity Narrative</title>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   CUSTOM PROPERTIES
+   ═══════════════════════════════════════════════════ */
+:root {
+  --bg-deep: #070C18;
+  --teal: #1AECBC;
+  --purple: #8B3FD9;
+  --orange-pulse: #FF6B2B;
+  --text-primary: #F0F1F5;
+  --text-secondary: #DDE0E8;
+  --text-muted: #A0AABB;
+  --grid-line: rgba(255,255,255,0.04);
+  --font-body: 'Mulish', sans-serif;
+  --font-headline: 'Mulish', sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 19px;
+  line-height: 1.8;
+  font-weight: 300;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════
+   WEBGL CANVAS
+   ═══════════════════════════════════════════════════ */
+#webgl-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════ */
+.headline {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(2.8rem, 5.5vw, 5.5rem);
+  line-height: 1.15;
+  color: #FFFFFF;
+  letter-spacing: -0.01em;
+}
+
+.headline--largest {
+  font-size: clamp(3.5rem, 7vw, 7rem);
+}
+
+.headline--large {
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+}
+
+.section-label {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.sub-label {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--teal);
+  margin-bottom: 1.2rem;
+}
+
+.body-text {
+  font-size: 19px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.body-text p { margin-bottom: 1.5em; }
+.body-text p:last-child { margin-bottom: 0; }
+
+.pull-quote {
+  font-family: var(--font-body);
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-primary);
+  padding: 5rem 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.transition-line {
+  font-style: italic;
+  color: var(--text-secondary);
+  margin: 2.5rem 0;
+  font-size: 17px;
+}
+
+/* Text over images - always readable */
+.text-over-image {
+  text-shadow: 0 2px 20px rgba(0,0,0,0.8), 0 1px 4px rgba(0,0,0,0.9);
+}
+
+.text-over-image .body-text,
+.text-over-image .body-text p {
+  color: rgba(240, 241, 245, 0.95);
+}
+
+.text-over-image .section-label {
+  color: rgba(200, 204, 214, 0.9);
+}
+
+/* ═══════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════ */
+.page-content {
+  position: relative;
+  z-index: 1;
+}
+
+section {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 4vw;
+}
+
+.split-layout {
+  display: grid;
+  grid-template-columns: 42% 58%;
+  gap: 3.5rem;
+  align-items: center;
+  min-height: 100vh;
+  padding: 6rem 0;
+}
+
+.split-layout--reversed {
+  grid-template-columns: 58% 42%;
+}
+
+.split-layout__text {
+  padding: 2rem 0;
+}
+
+.split-layout__image {
+  position: relative;
+}
+
+.split-layout__image img {
+  width: 100%;
+  border-radius: 6px;
+  box-shadow: 0 8px 60px rgba(0,0,0,0.5), 0 2px 20px rgba(26,236,188,0.05);
+}
+
+/* ═══════════════════════════════════════════════════
+   PAGE HEADLINE BAR
+   ═══════════════════════════════════════════════════ */
+.page-headline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  padding: 1rem 2.5rem;
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(220, 224, 232, 0.55);
+  background: linear-gradient(to bottom, rgba(7, 12, 24, 0.7) 0%, rgba(7, 12, 24, 0.0) 100%);
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+/* ═══════════════════════════════════════════════════
+   HERO SECTION
+   ═══════════════════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  background: url('assets/images/01-hero.png') center/cover no-repeat;
+  z-index: -1;
+}
+
+.hero__bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(7, 12, 24, 0.3) 0%,
+    rgba(7, 12, 24, 0.35) 50%,
+    rgba(7, 12, 24, 0.7) 100%
+  );
+}
+
+.hero__content {
+  position: relative;
+  z-index: 2;
+  padding: 0 2rem;
+}
+
+.hero__headline {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(4rem, 8vw, 9rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+  color: #FFFFFF;
+  text-shadow: 0 4px 40px rgba(0,0,0,0.6), 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.hero__subline {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto 2rem;
+  color: rgba(240, 241, 245, 0.92);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+
+.hero__micro {
+  position: absolute;
+  bottom: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 400;
+  color: rgba(230, 233, 240, 0.92);
+  text-align: center;
+  max-width: 820px;
+  line-height: 1.75;
+  padding: 0 2.5rem;
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.85), 0 1px 4px rgba(0,0,0,0.6);
+}
+
+/* ═══════════════════════════════════════════════════
+   FULL BLEED SECTIONS
+   ═══════════════════════════════════════════════════ */
+.full-bleed {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.full-bleed__bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+}
+
+.full-bleed__overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.full-bleed__content {
+  position: relative;
+  z-index: 2;
+  max-width: 800px;
+  padding: 6rem 2rem;
+}
+
+.full-bleed__content--narrow {
+  max-width: 700px;
+}
+
+/* ═══════════════════════════════════════════════════
+   DEFINITION BLOCK
+   ═══════════════════════════════════════════════════ */
+.definition-block {
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 2px solid var(--teal);
+  padding: 2rem 2.5rem;
+  margin: 2rem 0;
+  font-size: 17px;
+  line-height: 1.9;
+  color: var(--text-secondary);
+}
+
+.definition-block strong {
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════
+   DATA CALLOUTS
+   ═══════════════════════════════════════════════════ */
+.data-callouts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 3.5rem 2rem;
+  margin-top: 4rem;
+}
+
+.data-callout {
+  text-align: center;
+}
+
+.data-callout__number {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: clamp(3rem, 5vw, 5.5rem);
+  line-height: 1.1;
+  color: var(--teal);
+  letter-spacing: -0.02em;
+}
+
+.data-callout__label {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  text-transform: lowercase;
+}
+
+/* ═══════════════════════════════════════════════════
+   VERA SECTION
+   ═══════════════════════════════════════════════════ */
+.vera-headline {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(4.5rem, 9vw, 10rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.3rem;
+  color: #FFFFFF;
+  text-shadow: 0 4px 40px rgba(139,63,217,0.4), 0 2px 12px rgba(0,0,0,0.8);
+}
+
+.vera-subtitle {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(1.3rem, 2.5vw, 2rem);
+  color: rgba(240, 241, 245, 0.9);
+  margin-bottom: 3rem;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+
+/* ═══════════════════════════════════════════════════
+   CLOSING SECTION
+   ═══════════════════════════════════════════════════ */
+.signoff {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  color: var(--teal);
+  text-align: center;
+  margin-top: 5rem;
+  text-shadow: 0 0 40px rgba(26,236,188,0.3);
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLL ANIMATIONS
+   ═══════════════════════════════════════════════════ */
+.fade-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-in {
+  opacity: 0;
+  transition: opacity 1.2s ease-out;
+}
+
+.fade-in.visible {
+  opacity: 1;
+}
+
+.scale-in {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.9s ease-out, transform 0.9s ease-out;
+}
+
+.scale-in.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ═══════════════════════════════════════════════════
+   GIF SHOWCASE
+   ═══════════════════════════════════════════════════ */
+.gif-showcase {
+  min-height: auto;
+  padding: 6rem 0 4rem;
+  display: block;
+}
+
+.gif-showcase .container {
+  max-width: 1400px;
+}
+
+.gif-showcase__header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.gif-showcase__header .sub-label {
+  margin-bottom: 0.75rem;
+}
+
+.gif-showcase__header p {
+  font-size: 1rem;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+.gif-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.gif-card {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.gif-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(26, 236, 188, 0.15);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 30px rgba(26, 236, 188, 0.05);
+}
+
+.gif-card__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: rgba(7, 12, 24, 0.6);
+}
+
+.gif-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.gif-card__label {
+  padding: 1rem 1.25rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(220, 224, 232, 0.8);
+  text-transform: uppercase;
+}
+
+.gif-card__label span {
+  display: block;
+  font-weight: 300;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .split-layout,
+  .split-layout--reversed {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    padding: 4rem 0;
+  }
+
+  .split-layout__image {
+    order: -1;
+  }
+
+  .data-callouts {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .hero__micro {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    margin-top: 3rem;
+    font-size: 1.05rem;
+    max-width: 100%;
+    padding: 0 1.5rem;
+  }
+
+  .gif-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .gif-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .gif-showcase {
+    padding: 4rem 0 3rem;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- WebGL Particle Background -->
+<canvas id="webgl-canvas"></canvas>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE CONTENT
+     ═══════════════════════════════════════════════════ -->
+<div class="page-headline">Nexar Data Particles &mdash; Narrative and Use</div>
+
+<div class="page-content">
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 1 - HERO / ENTRY
+       ═══════════════════════════════════════════════ -->
+  <section class="hero" data-section="hero">
+    <div class="hero__bg"></div>
+    <div class="hero__content fade-up">
+      <h1 class="hero__headline">The Latent Space</h1>
+      <p class="hero__subline">Where everything that has ever happened - and everything that will - already exists.</p>
+    </div>
+    <p class="hero__micro fade-up">10,000,000,000+ miles. 45+ petabytes. One living universe. Every event observed. Every absence measured. Every pattern, its own coordinate in an infinite dimensional space.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 2 - WHAT IS THE LATENT SPACE
+       ═══════════════════════════════════════════════ -->
+  <section data-section="latent-space">
+    <div class="container">
+      <div class="split-layout">
+        <div class="split-layout__text fade-up">
+          <p class="section-label">The Foundation</p>
+
+          <div class="definition-block">
+            <p><strong>Latent space</strong> <em>(noun, machine learning & AI)</em></p>
+            <p>A compressed, multi-dimensional representation of data in which similar inputs are mapped to nearby coordinates. In a latent space, raw information - images, events, behaviors - is encoded into abstract vectors that preserve meaning while discarding noise. It is the mathematical interior of an AI model: invisible, high-dimensional, and containing within it the full range of everything the model has ever learned, and everything it can infer.</p>
+            <p>The latent space is not a metaphor. It is a place.</p>
+          </div>
+
+          <p class="transition-line">This is the established science. What Nexar has done is fill it with the physical world.</p>
+
+          <h2 class="headline headline--large" style="margin: 2rem 0 1.5rem;">Reality, compressed into infinite possibility.</h2>
+
+          <div class="body-text">
+            <p>The world doesn't stop producing data. Every road traveled, every near-miss avoided, every moment a driver hesitated, braked, swerved, or accelerated - it happened. Some of it we recorded. All of it exists. Because the latent space doesn't only hold what was captured. It holds what is physically possible - every event that has ever occurred and every event that could. What we recorded is the key that unlocks the rest.</p>
+            <p>Not in a database. Not in a file. In the latent space - the invisible dimension where raw reality is transformed into its purest informational form. Compressed. Encoded. Waiting.</p>
+            <p>This is where Nexar lives. Not on the road. Not in the cloud. In the space between what happened, what didn't happen, and what it means.</p>
+          </div>
+        </div>
+        <div class="split-layout__image fade-in">
+          <img src="assets/images/02-latent-space.png" alt="The Latent Space - floating data visualization" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 3 - THE PARTICLE
+       ═══════════════════════════════════════════════ -->
+  <section data-section="particle">
+    <div class="container">
+      <div class="split-layout split-layout--reversed">
+        <div class="split-layout__image fade-in">
+          <img src="assets/images/03-particle.png" alt="A single Nexar Particle - intimate low-hovering cloud" loading="lazy">
+        </div>
+        <div class="split-layout__text fade-up">
+          <p class="section-label">The Atomic Unit</p>
+          <h2 class="headline headline--large">One moment. One truth.</h2>
+          <div class="body-text" style="margin-top: 1.5rem;">
+            <p>It starts impossibly small.</p>
+            <p>A single particle is a single event: a coordinate, a timestamp, a velocity, a visual frame, a sensor reading. One sensor. One road. One fraction of a second.</p>
+            <p>On its own, it is nothing remarkable. A flash of data in an endless stream.</p>
+            <p>But it is real. It happened. And that makes it indestructible.</p>
+            <p>This is the Nexar Particle - the irreducible unit of ground truth.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="pull-quote scale-in">One particle. One moment. Inarguable.</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 4 - THE CLUSTER / INCIDENT
+       ═══════════════════════════════════════════════ -->
+  <section data-section="cluster">
+    <div class="container">
+      <div class="split-layout">
+        <div class="split-layout__text fade-up">
+          <p class="section-label">The Incident</p>
+          <h2 class="headline headline--large">Particles don't exist alone. They recognize each other.</h2>
+          <div class="body-text" style="margin-top: 1.5rem;">
+            <p>When particles from the same moment converge - when frames, metadata, GPS, vectors, and telematics all meet - something new forms.</p>
+            <p>A cluster.</p>
+            <p>A sudden deceleration at mile marker 47 on I-95. Three vehicles. Two sensors. One pothole that the city doesn't know exists yet. One pedestrian who stepped off the curb at the wrong moment.</p>
+            <p>The cluster doesn't describe the incident. The cluster <em>is</em> the incident - in its fullest, most dimensional form. Searchable. Verifiable. True.</p>
+          </div>
+        </div>
+        <div class="split-layout__image fade-in">
+          <img src="assets/images/04-cluster.png" alt="Two particle masses pulling together to form a cluster" loading="lazy">
+        </div>
+      </div>
+      <div class="pull-quote scale-in">A cluster is not a summary. It is the event itself, seen from every angle at once.</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 5 - THE BEHAVIOR
+       ═══════════════════════════════════════════════ -->
+  <section class="full-bleed" data-section="behavior">
+    <div class="full-bleed__bg" style="background-image: url('assets/images/05-behavior.png');">
+      <div class="full-bleed__overlay" style="background: linear-gradient(to bottom, rgba(7,12,24,0.55) 0%, rgba(7,12,24,0.75) 50%, rgba(7,12,24,0.85) 100%);"></div>
+    </div>
+    <div class="full-bleed__content text-over-image">
+      <p class="section-label fade-up">The Pattern</p>
+      <h2 class="headline fade-up" style="margin-bottom: 2rem;">One incident is data. A thousand incidents is knowledge. Ten billion miles is a living map of human behavior.</h2>
+      <div class="body-text fade-up" style="text-align: left;">
+        <p>Clusters connect to clusters. Patterns emerge. Behaviors surface.</p>
+        <p>The intersection in Houston where near-misses spike every rainy Tuesday. The highway stretch in Texas where fatigue-related drift increases between 2am and 4am. The fleet behavior that predicts a collision 11 days before it happens.</p>
+        <p>None of this was reported. None of it was filed. It was simply lived - and recorded.</p>
+        <p>But the picture is never only what happened. In a dataset this complete, the gaps speak as loudly as the events. The absence of accidents on a well-lit road. The silence in the data where a risk was engineered away. The near-miss that almost never was. We see the survival bias - and we account for it. That is the difference between a snapshot and a complete model of reality.</p>
+        <p>This is the latent space at scale. This is what it means to build physical AI on top of the world as it actually is.</p>
+      </div>
+
+      <div class="data-callouts fade-up">
+        <div class="data-callout">
+          <div class="data-callout__number" data-count-to="10" data-suffix="B+">0</div>
+          <div class="data-callout__label">real-world miles recorded</div>
+        </div>
+        <div class="data-callout">
+          <div class="data-callout__number" data-count-to="45" data-suffix="+ PB">0</div>
+          <div class="data-callout__label">of raw data</div>
+        </div>
+        <div class="data-callout">
+          <div class="data-callout__number" data-count-text="Millions">0</div>
+          <div class="data-callout__label">of unique driving events, daily</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 6 - VERA
+       ═══════════════════════════════════════════════ -->
+  <section class="full-bleed" data-section="vera">
+    <div class="full-bleed__bg" style="background-image: url('assets/images/06-vera.png');">
+      <div class="full-bleed__overlay" style="background: linear-gradient(to bottom, rgba(7,12,24,0.25) 0%, rgba(7,12,24,0.4) 40%, rgba(7,12,24,0.65) 100%);"></div>
+    </div>
+    <div class="full-bleed__content full-bleed__content--narrow text-over-image">
+      <p class="section-label fade-up">The Intelligence</p>
+      <h2 class="vera-headline fade-up">VERA.</h2>
+      <p class="vera-subtitle fade-up">Veritas. Truth.</p>
+      <div class="body-text fade-up" style="text-align: left;">
+        <p>VERA is the presence that moves through the latent space - the invisible archivist, the silent molder, the searcher who never sleeps.</p>
+        <p>Her name is Latin. Veritas. Truth. Because what VERA does, above all else, is refuse to accept anything less.</p>
+        <p>She learns from what happens in the real world - every particle, every cluster, every pattern that forms across 10 billion miles of lived experience. But she also learns from what our clients need, what they don't yet know they need, what they're missing, what they're about to miss.</p>
+        <p>VERA doesn't retrieve data. She understands it. She doesn't surface insights. She sees them forming before they fully exist.</p>
+        <p>She is not a product feature. She is the intelligence layer of the latent space itself - the reason the particles don't just exist, but mean something.</p>
+        <p>Truth is always there. It is powerful. It is inarguable. VERA is its living form.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 7A - VISUAL LANGUAGE INTRO
+       ═══════════════════════════════════════════════ -->
+  <section class="full-bleed" data-section="visual-intro">
+    <div class="full-bleed__bg" style="background-image: url('assets/images/07-spectrum.png');">
+      <div class="full-bleed__overlay" style="background: linear-gradient(to bottom, rgba(7,12,24,0.3) 0%, rgba(7,12,24,0.45) 50%, rgba(7,12,24,0.6) 100%);"></div>
+    </div>
+    <div class="full-bleed__content text-over-image">
+      <p class="section-label fade-up">The Visual Language</p>
+      <h2 class="headline fade-up" style="margin-bottom: 2rem;">How the latent space looks. How it moves. How it speaks.</h2>
+      <div class="body-text fade-up">
+        <p>The Nexar Particles are not decoration. They are a direct visual translation of what our physical AI is built on - millions of individual units of reality, in constant motion, forming and reforming into meaning.</p>
+        <p>Every visual expression of Nexar draws from this same source. The particles are our identity because they are the ground truth on which everything we build stands.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       GIF SHOWCASE - PARTICLES IN MOTION
+       GIF SHOWCASE - Particles in Motion
+       ═══════════════════════════════════════════════ -->
+  <section class="gif-showcase" data-section="gif-showcase">
+    <div class="container">
+      <div class="gif-showcase__header fade-up">
+        <p class="sub-label">Particles in Motion</p>
+        <p>The visual language alive - particles forming, drifting, clustering, and dissolving across the latent space.</p>
+      </div>
+      <div class="gif-grid">
+        <div class="gif-card fade-up">
+          <div class="gif-card__media">
+            <img src="assets/gifs/coordinate-mapping.gif" alt="Topographic data mapped across a coordinate field" loading="lazy">
+          </div>
+          <div class="gif-card__label">Coordinate Mapping
+            <span>Road topology rendered as particle-based terrain</span>
+          </div>
+        </div>
+        <div class="gif-card fade-up">
+          <div class="gif-card__media">
+            <img src="assets/gifs/particle-motion.gif" alt="An entity moving through the latent space" loading="lazy">
+          </div>
+          <div class="gif-card__label">Particle in Motion
+            <span>A single data entity traversing the coordinate space</span>
+          </div>
+        </div>
+        <div class="gif-card fade-up">
+          <div class="gif-card__media">
+            <img src="assets/gifs/signal-convergence.gif" alt="Multiple signal sources converging at an intersection" loading="lazy">
+          </div>
+          <div class="gif-card__label">Signal Convergence
+            <span>Where frames, vectors, and telematics meet</span>
+          </div>
+        </div>
+        <div class="gif-card fade-up">
+          <div class="gif-card__media">
+            <img src="assets/gifs/trajectory-trace.gif" alt="Path trajectory traced through particle space" loading="lazy">
+          </div>
+          <div class="gif-card__label">Trajectory Trace
+            <span>Movement paths drawn through three-dimensional data</span>
+          </div>
+        </div>
+        <div class="gif-card fade-up">
+          <div class="gif-card__media">
+            <img src="assets/gifs/entity-detection.gif" alt="Entity detected and tracked within the particle field" loading="lazy">
+          </div>
+          <div class="gif-card__label">Entity Detection
+            <span>Objects recognized and isolated within the data field</span>
+          </div>
+        </div>
+        <div class="gif-card fade-up">
+          <div class="gif-card__media">
+            <img src="assets/gifs/cluster-formation.gif" alt="Data particles forming into a cluster event" loading="lazy">
+          </div>
+          <div class="gif-card__label">Cluster Formation
+            <span>Multiple observations converging into a single event</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 7B - COLOR
+       ═══════════════════════════════════════════════ -->
+  <section data-section="color">
+    <div class="container">
+      <div class="split-layout split-layout--reversed">
+        <div class="split-layout__image fade-in">
+          <img src="assets/images/07-spectrum.png" alt="The full Nexar particle spectrum" loading="lazy">
+        </div>
+        <div class="split-layout__text fade-up">
+          <p class="sub-label">The Spectrum of Truth</p>
+          <div class="body-text">
+            <p>The Nexar Particle palette doesn't represent a hierarchy. It represents diversity.</p>
+            <p>Real-world data is not monochromatic. Speed data behaves differently from visual data. Weather signals carry different weight than infrastructure signals. Behavioral patterns read differently from mechanical events.</p>
+            <p>The spectrum - from teal through purple, with pulses of yellow-orange at points of intensity - is not a code to be deciphered. It is the honest visual expression of a dataset that contains multitudes. Different data. Different dimensions. One continuous latent space.</p>
+            <p>The ground is always deep navy, almost black. The latent space has no ceiling, no floor. Only depth.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 7C - FORM
+       ═══════════════════════════════════════════════ -->
+  <section data-section="form">
+    <div class="container">
+      <div class="split-layout">
+        <div class="split-layout__text fade-up">
+          <p class="sub-label">Density as Meaning</p>
+          <div class="body-text">
+            <p>A lone particle drifts. Sparse. Delicate.</p>
+            <p>As particles gather, density increases - and so does weight. Visual mass communicates data mass. A wisp is a moment. A cloud is a behavior. A storm is a truth so large it reshapes everything around it.</p>
+            <p>The particles are never static. They drift, they pulse, they find each other. Motion is always present - not as decoration, but as a reminder that data is never finished. The world keeps moving. So do we.</p>
+          </div>
+        </div>
+        <div class="split-layout__image fade-in">
+          <img src="assets/images/08-density.png" alt="Particle density field with visible spheres" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 7D - THE GRID
+       ═══════════════════════════════════════════════ -->
+  <section data-section="grid">
+    <div class="container">
+      <div class="split-layout split-layout--reversed">
+        <div class="split-layout__image fade-in">
+          <img src="assets/images/09-grid.png" alt="Particle mass above prominent grid floor" loading="lazy">
+        </div>
+        <div class="split-layout__text fade-up">
+          <p class="sub-label">The Grid Beneath Everything</p>
+          <div class="body-text">
+            <p>Look closely at any Nexar visual and you'll find it: a faint grid, receding into the dark. It is always there. Barely visible. Never absent.</p>
+            <p>The grid is the coordinate system of reality. It is the reminder that every particle, however abstract it appears, began somewhere physical - a road, an intersection, a moment on Earth with precise latitude, longitude, and altitude.</p>
+            <p>Every Nexar Particle carries its address. X. Y. Z. It knows where it came from. It can always be found. It can always be reached. In the latent space, nothing is lost - everything is located. The particles float above the grid. VERA moves through it. But the grid never disappears, because the real world never does.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       SECTION 8 - CLOSING
+       ═══════════════════════════════════════════════ -->
+  <section class="full-bleed" data-section="closing">
+    <div class="full-bleed__bg" style="background-image: url('assets/images/10-closing.png');">
+      <div class="full-bleed__overlay" style="background: linear-gradient(to bottom, rgba(7,12,24,0.3) 0%, rgba(7,12,24,0.45) 50%, rgba(7,12,24,0.65) 100%);"></div>
+    </div>
+    <div class="full-bleed__content full-bleed__content--narrow text-over-image">
+      <h2 class="headline headline--largest fade-up" style="margin-bottom: 2rem;">The latent space is not a metaphor.<br>It's where we work.</h2>
+      <div class="body-text fade-up">
+        <p>Every product Nexar builds. Every insight we surface. Every prediction we make. It all begins here - in the space between reality and understanding, where 10 billion miles of truth wait to be asked the right question.</p>
+        <p>The particles are already there. VERA already knows. The only question is - what will you build with this power?</p>
+      </div>
+      <p class="signoff fade-up">The Real World Edge.</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     THREE.JS & WEBGL PARTICLE SYSTEM
+     ═══════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  /* ─── Performance detection ─── */
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isLowPower = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+
+  /* ─── Create glow sprite texture procedurally ─── */
+  function createGlowTexture(size, falloff) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const half = size / 2;
+
+    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+    gradient.addColorStop(0.0, 'rgba(255,255,255,1.0)');
+    gradient.addColorStop(0.15, 'rgba(255,255,255,0.8)');
+    gradient.addColorStop(0.35, `rgba(255,255,255,${falloff})`);
+    gradient.addColorStop(0.65, 'rgba(255,255,255,0.05)');
+    gradient.addColorStop(1.0, 'rgba(255,255,255,0.0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  function createSoftTexture(size) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const half = size / 2;
+
+    const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+    gradient.addColorStop(0.0, 'rgba(255,255,255,0.5)');
+    gradient.addColorStop(0.3, 'rgba(255,255,255,0.15)');
+    gradient.addColorStop(0.6, 'rgba(255,255,255,0.03)');
+    gradient.addColorStop(1.0, 'rgba(255,255,255,0.0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  const glowTex = createGlowTexture(128, 0.35);
+  const softTex = createSoftTexture(128);
+
+  /* ─── Scene setup ─── */
+  const canvas = document.getElementById('webgl-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.sortObjects = true;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x070C18, 0.025);
+
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.position.set(0, 1.5, 22);
+  camera.lookAt(0, 0, 0);
+
+  /* ─── Constants ─── */
+  const TEAL = new THREE.Color(0x1AECBC);
+  const PURPLE = new THREE.Color(0x8B3FD9);
+  const ORANGE = new THREE.Color(0xFF6B2B);
+  const WHITE = new THREE.Color(0xDDEEFF);
+
+  /* ─── Layer 1: Core luminous particles (the cloud body) ─── */
+  const CORE_COUNT = isLowPower ? 500 : 1500;
+  const coreGeo = new THREE.BufferGeometry();
+  const corePositions = new Float32Array(CORE_COUNT * 3);
+  const coreColors = new Float32Array(CORE_COUNT * 3);
+  const coreSizes = new Float32Array(CORE_COUNT);
+  const coreDrift = [];
+  const coreBasePos = [];
+
+  for (let i = 0; i < CORE_COUNT; i++) {
+    // Gaussian-ish distribution: more dense at center
+    const r = Math.pow(Math.random(), 0.4) * 14;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = (Math.random() - 0.5) * 5;
+    const z = r * Math.sin(phi) * Math.sin(theta);
+
+    corePositions[i * 3] = x;
+    corePositions[i * 3 + 1] = y;
+    corePositions[i * 3 + 2] = z;
+
+    coreBasePos.push(new THREE.Vector3(x, y, z));
+
+    // Color: mix of teal and purple with variation
+    const t = Math.random();
+    const color = new THREE.Color();
+    if (t < 0.45) {
+      color.copy(TEAL);
+    } else if (t < 0.9) {
+      color.copy(PURPLE);
+    } else {
+      color.copy(ORANGE);
+    }
+    color.offsetHSL((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.15);
+
+    coreColors[i * 3] = color.r;
+    coreColors[i * 3 + 1] = color.g;
+    coreColors[i * 3 + 2] = color.b;
+
+    // Size: varied, some tiny, some larger
+    coreSizes[i] = 0.15 + Math.pow(Math.random(), 2) * 0.6;
+
+    coreDrift.push(new THREE.Vector3(
+      (Math.random() - 0.5) * 0.004,
+      (Math.random() - 0.5) * 0.003,
+      (Math.random() - 0.5) * 0.004
+    ));
+  }
+
+  coreGeo.setAttribute('position', new THREE.BufferAttribute(corePositions, 3));
+  coreGeo.setAttribute('color', new THREE.BufferAttribute(coreColors, 3));
+  coreGeo.setAttribute('size', new THREE.BufferAttribute(coreSizes, 1));
+
+  // Custom shader for size-varied, glowing particles
+  const coreVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vDist;
+    void main() {
+      vColor = color;
+      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+      vDist = -mvPos.z;
+      gl_PointSize = size * (350.0 / -mvPos.z);
+      gl_Position = projectionMatrix * mvPos;
+    }
+  `;
+
+  const coreFragmentShader = `
+    uniform sampler2D uTexture;
+    varying vec3 vColor;
+    varying float vDist;
+    void main() {
+      vec4 texColor = texture2D(uTexture, gl_PointCoord);
+      float fogFactor = exp(-0.025 * 0.025 * vDist * vDist);
+      vec3 fogColor = vec3(0.027, 0.047, 0.094);
+      vec3 finalColor = mix(fogColor, vColor, fogFactor);
+      gl_FragColor = vec4(finalColor * 1.6, texColor.a * 0.85 * fogFactor);
+    }
+  `;
+
+  const coreMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uTexture: { value: glowTex }
+    },
+    vertexShader: coreVertexShader,
+    fragmentShader: coreFragmentShader,
+    vertexColors: true,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const corePoints = new THREE.Points(coreGeo, coreMaterial);
+  scene.add(corePoints);
+
+  /* ─── Layer 2: Soft haze / nebula layer (large, dim, atmospheric) ─── */
+  const HAZE_COUNT = isLowPower ? 60 : 180;
+  const hazeGeo = new THREE.BufferGeometry();
+  const hazePositions = new Float32Array(HAZE_COUNT * 3);
+  const hazeColors = new Float32Array(HAZE_COUNT * 3);
+  const hazeSizes = new Float32Array(HAZE_COUNT);
+  const hazeDrift = [];
+  const hazeBasePos = [];
+
+  for (let i = 0; i < HAZE_COUNT; i++) {
+    const r = Math.pow(Math.random(), 0.3) * 16;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = (Math.random() - 0.5) * 6;
+    const z = r * Math.sin(phi) * Math.sin(theta);
+
+    hazePositions[i * 3] = x;
+    hazePositions[i * 3 + 1] = y;
+    hazePositions[i * 3 + 2] = z;
+
+    hazeBasePos.push(new THREE.Vector3(x, y, z));
+
+    const t = Math.random();
+    const color = new THREE.Color();
+    if (t < 0.5) color.copy(TEAL); else color.copy(PURPLE);
+    color.offsetHSL(0, -0.2, 0);
+
+    hazeColors[i * 3] = color.r;
+    hazeColors[i * 3 + 1] = color.g;
+    hazeColors[i * 3 + 2] = color.b;
+
+    hazeSizes[i] = 2.0 + Math.random() * 4.0;
+
+    hazeDrift.push(new THREE.Vector3(
+      (Math.random() - 0.5) * 0.001,
+      (Math.random() - 0.5) * 0.001,
+      (Math.random() - 0.5) * 0.001
+    ));
+  }
+
+  hazeGeo.setAttribute('position', new THREE.BufferAttribute(hazePositions, 3));
+  hazeGeo.setAttribute('color', new THREE.BufferAttribute(hazeColors, 3));
+  hazeGeo.setAttribute('size', new THREE.BufferAttribute(hazeSizes, 1));
+
+  const hazeVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vDist;
+    void main() {
+      vColor = color;
+      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+      vDist = -mvPos.z;
+      gl_PointSize = size * (300.0 / -mvPos.z);
+      gl_Position = projectionMatrix * mvPos;
+    }
+  `;
+
+  const hazeFragmentShader = `
+    uniform sampler2D uTexture;
+    varying vec3 vColor;
+    varying float vDist;
+    void main() {
+      vec4 texColor = texture2D(uTexture, gl_PointCoord);
+      float fogFactor = exp(-0.02 * 0.02 * vDist * vDist);
+      gl_FragColor = vec4(vColor * 0.7, texColor.a * 0.12 * fogFactor);
+    }
+  `;
+
+  const hazeMaterial = new THREE.ShaderMaterial({
+    uniforms: { uTexture: { value: softTex } },
+    vertexShader: hazeVertexShader,
+    fragmentShader: hazeFragmentShader,
+    vertexColors: true,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const hazePoints = new THREE.Points(hazeGeo, hazeMaterial);
+  scene.add(hazePoints);
+
+  /* ─── Layer 3: Bright hero spheres (a few actual 3D spheres with glow) ─── */
+  const HERO_COUNT = isLowPower ? 15 : 40;
+  const heroSphereGeo = new THREE.SphereGeometry(1, 16, 16);
+  const heroParticles = [];
+
+  for (let i = 0; i < HERO_COUNT; i++) {
+    const r = Math.pow(Math.random(), 0.5) * 10;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    const isTeal = Math.random() < 0.5;
+    const baseColor = isTeal ? TEAL.clone() : PURPLE.clone();
+    baseColor.offsetHSL(0, 0, (Math.random() - 0.5) * 0.15);
+
+    const size = 0.04 + Math.pow(Math.random(), 3) * 0.12;
+
+    const mat = new THREE.MeshPhongMaterial({
+      color: baseColor,
+      emissive: baseColor.clone().multiplyScalar(0.4),
+      shininess: 100,
+      transparent: true,
+      opacity: 0.6 + Math.random() * 0.4
+    });
+
+    const mesh = new THREE.Mesh(heroSphereGeo, mat);
+    mesh.scale.setScalar(size);
+
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = (Math.random() - 0.5) * 4;
+    const z = r * Math.sin(phi) * Math.sin(theta);
+    mesh.position.set(x, y, z);
+
+    heroParticles.push({
+      mesh,
+      basePos: new THREE.Vector3(x, y, z),
+      drift: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.003,
+        (Math.random() - 0.5) * 0.002,
+        (Math.random() - 0.5) * 0.003
+      ),
+      phase: Math.random() * Math.PI * 2,
+      isTeal
+    });
+
+    scene.add(mesh);
+  }
+
+  /* ─── Lighting ─── */
+  const ambientLight = new THREE.AmbientLight(0x0A0F22, 0.8);
+  scene.add(ambientLight);
+
+  const tealLight = new THREE.PointLight(0x1AECBC, 2.0, 50);
+  tealLight.position.set(-12, 4, 6);
+  scene.add(tealLight);
+
+  const purpleLight = new THREE.PointLight(0x8B3FD9, 2.0, 50);
+  purpleLight.position.set(12, 4, 6);
+  scene.add(purpleLight);
+
+  const accentLight = new THREE.PointLight(0x4466FF, 0.8, 30);
+  accentLight.position.set(0, -3, 10);
+  scene.add(accentLight);
+
+  /* ─── Layer 4: Infinite 3D Grid Floor ─── */
+  const gridGroup = new THREE.Group();
+  gridGroup.position.y = -4.5;
+  gridGroup.rotation.x = 0; // flat on XZ plane
+
+  // Grid shader for fade-to-distance effect
+  const gridVertexShader = `
+    varying vec3 vWorldPos;
+    varying float vDist;
+    void main() {
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPos = worldPos.xyz;
+      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+      vDist = length(mvPos.xyz);
+      gl_Position = projectionMatrix * mvPos;
+    }
+  `;
+
+  const gridFragmentShader = `
+    uniform vec3 uColor;
+    uniform float uOpacity;
+    uniform float uFadeStart;
+    uniform float uFadeEnd;
+    varying vec3 vWorldPos;
+    varying float vDist;
+    void main() {
+      // Distance-based fade
+      float fadeFactor = 1.0 - smoothstep(uFadeStart, uFadeEnd, vDist);
+      // Also fade based on distance from center on XZ plane
+      float centerDist = length(vWorldPos.xz);
+      float centerFade = 1.0 - smoothstep(10.0, 55.0, centerDist);
+      float alpha = uOpacity * fadeFactor * centerFade;
+      if (alpha < 0.005) discard;
+      gl_FragColor = vec4(uColor, alpha);
+    }
+  `;
+
+  // Main grid lines (sparser, more visible)
+  const gridSize = 120;
+  const gridStep = 2.0;
+  const mainGridGeo = new THREE.BufferGeometry();
+  const mainGridVerts = [];
+
+  for (let i = -gridSize / 2; i <= gridSize / 2; i += gridStep) {
+    // Lines along Z
+    mainGridVerts.push(-gridSize / 2, 0, i);
+    mainGridVerts.push(gridSize / 2, 0, i);
+    // Lines along X
+    mainGridVerts.push(i, 0, -gridSize / 2);
+    mainGridVerts.push(i, 0, gridSize / 2);
+  }
+
+  mainGridGeo.setAttribute('position', new THREE.Float32BufferAttribute(mainGridVerts, 3));
+
+  const mainGridMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(0x1AECBC) },
+      uOpacity: { value: 0.08 },
+      uFadeStart: { value: 15.0 },
+      uFadeEnd: { value: 65.0 }
+    },
+    vertexShader: gridVertexShader,
+    fragmentShader: gridFragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const mainGrid = new THREE.LineSegments(mainGridGeo, mainGridMat);
+  gridGroup.add(mainGrid);
+
+  // Sub-grid lines (finer, more subtle)
+  const subGridStep = 0.5;
+  const subGridGeo = new THREE.BufferGeometry();
+  const subGridVerts = [];
+
+  for (let i = -gridSize / 2; i <= gridSize / 2; i += subGridStep) {
+    // Skip positions that overlap with main grid
+    if (Math.abs(i % gridStep) < 0.01) continue;
+    subGridVerts.push(-gridSize / 2, 0, i);
+    subGridVerts.push(gridSize / 2, 0, i);
+    subGridVerts.push(i, 0, -gridSize / 2);
+    subGridVerts.push(i, 0, gridSize / 2);
+  }
+
+  subGridGeo.setAttribute('position', new THREE.Float32BufferAttribute(subGridVerts, 3));
+
+  const subGridMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(0x1AECBC) },
+      uOpacity: { value: 0.025 },
+      uFadeStart: { value: 8.0 },
+      uFadeEnd: { value: 35.0 }
+    },
+    vertexShader: gridVertexShader,
+    fragmentShader: gridFragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const subGrid = new THREE.LineSegments(subGridGeo, subGridMat);
+  gridGroup.add(subGrid);
+
+  scene.add(gridGroup);
+
+  /* ─── Scroll state ─── */
+  let targetPurpleRatio = 0.5;
+  let currentPurpleRatio = 0.5;
+  let targetSpeed = 1.0;
+  let currentSpeed = 1.0;
+
+  /* ─── Animation loop ─── */
+  let time = 0;
+  const tempVec = new THREE.Vector3();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    time += 0.016;
+
+    // Smooth scroll-based transitions
+    currentPurpleRatio += (targetPurpleRatio - currentPurpleRatio) * 0.015;
+    currentSpeed += (targetSpeed - currentSpeed) * 0.015;
+
+    // Breathing effect
+    const breath = 1 + Math.sin(time * 1.57) * 0.02;
+
+    // ── Update core particles ──
+    const posArr = coreGeo.attributes.position.array;
+    const colArr = coreGeo.attributes.color.array;
+
+    for (let i = 0; i < CORE_COUNT; i++) {
+      const i3 = i * 3;
+
+      // Drift
+      posArr[i3]     += coreDrift[i].x * currentSpeed;
+      posArr[i3 + 1] += coreDrift[i].y * currentSpeed;
+      posArr[i3 + 2] += coreDrift[i].z * currentSpeed;
+
+      // Wobble
+      posArr[i3 + 1] += Math.sin(time * 0.4 + i * 0.7) * 0.0008;
+
+      // Soft boundary
+      tempVec.set(posArr[i3], posArr[i3 + 1], posArr[i3 + 2]);
+      const dist = tempVec.distanceTo(coreBasePos[i]);
+      if (dist > 2.5) {
+        posArr[i3]     += (coreBasePos[i].x - posArr[i3]) * 0.008;
+        posArr[i3 + 1] += (coreBasePos[i].y - posArr[i3 + 1]) * 0.008;
+        posArr[i3 + 2] += (coreBasePos[i].z - posArr[i3 + 2]) * 0.008;
+      }
+
+      // Color shift based on scroll
+      const shouldBePurple = (i / CORE_COUNT) < currentPurpleRatio;
+      const target = shouldBePurple ? PURPLE : TEAL;
+      colArr[i3]     += (target.r - colArr[i3]) * 0.008;
+      colArr[i3 + 1] += (target.g - colArr[i3 + 1]) * 0.008;
+      colArr[i3 + 2] += (target.b - colArr[i3 + 2]) * 0.008;
+    }
+
+    coreGeo.attributes.position.needsUpdate = true;
+    coreGeo.attributes.color.needsUpdate = true;
+
+    // ── Update haze particles ──
+    const hazePosArr = hazeGeo.attributes.position.array;
+    for (let i = 0; i < HAZE_COUNT; i++) {
+      const i3 = i * 3;
+      hazePosArr[i3]     += hazeDrift[i].x;
+      hazePosArr[i3 + 1] += hazeDrift[i].y + Math.sin(time * 0.2 + i) * 0.0003;
+      hazePosArr[i3 + 2] += hazeDrift[i].z;
+
+      tempVec.set(hazePosArr[i3], hazePosArr[i3 + 1], hazePosArr[i3 + 2]);
+      if (tempVec.distanceTo(hazeBasePos[i]) > 3) {
+        hazePosArr[i3]     += (hazeBasePos[i].x - hazePosArr[i3]) * 0.005;
+        hazePosArr[i3 + 1] += (hazeBasePos[i].y - hazePosArr[i3 + 1]) * 0.005;
+        hazePosArr[i3 + 2] += (hazeBasePos[i].z - hazePosArr[i3 + 2]) * 0.005;
+      }
+    }
+    hazeGeo.attributes.position.needsUpdate = true;
+
+    // ── Update hero spheres ──
+    for (let i = 0; i < heroParticles.length; i++) {
+      const p = heroParticles[i];
+      p.mesh.position.x += p.drift.x * currentSpeed;
+      p.mesh.position.y += p.drift.y * currentSpeed + Math.sin(time * 0.5 + p.phase) * 0.001;
+      p.mesh.position.z += p.drift.z * currentSpeed;
+
+      const d = p.mesh.position.distanceTo(p.basePos);
+      if (d > 2) p.mesh.position.lerp(p.basePos, 0.006);
+
+      // Subtle pulse
+      const pulse = 1 + Math.sin(time * 1.2 + p.phase) * 0.15;
+      p.mesh.material.emissiveIntensity = pulse * 0.4;
+    }
+
+    // ── Move lights gently ──
+    tealLight.position.x = -12 + Math.sin(time * 0.15) * 4;
+    tealLight.position.y = 4 + Math.sin(time * 0.12) * 2;
+    purpleLight.position.x = 12 + Math.cos(time * 0.13) * 4;
+    purpleLight.position.y = 4 + Math.cos(time * 0.1) * 2;
+
+    // ── Animate grid (infinite scroll illusion) ──
+    const gridScrollSpeed = 0.015;
+    gridGroup.position.z = ((time * gridScrollSpeed) % 2.0);
+    // Subtle color pulse on the main grid
+    const gridPulse = 0.06 + Math.sin(time * 0.3) * 0.02;
+    mainGridMat.uniforms.uOpacity.value = gridPulse;
+    // Tint grid toward purple based on scroll state
+    const gridColor = new THREE.Color().lerpColors(TEAL, PURPLE, currentPurpleRatio * 0.5);
+    mainGridMat.uniforms.uColor.value.copy(gridColor);
+    subGridMat.uniforms.uColor.value.copy(gridColor);
+
+    // ── Camera drift ──
+    camera.position.x = Math.sin(time * 0.08) * 0.6;
+    camera.position.y = 1.5 + Math.sin(time * 0.06) * 0.4;
+    camera.lookAt(0, 0, 0);
+
+    // ── Breathing scale on core ──
+    corePoints.scale.setScalar(breath);
+    hazePoints.scale.setScalar(breath);
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  /* ─── Resize ─── */
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  /* ─── Section-based color changes ─── */
+  function onSectionChange(section) {
+    switch (section) {
+      case 'vera':
+        targetPurpleRatio = 0.8;
+        targetSpeed = 0.5;
+        break;
+      case 'visual-intro':
+      case 'color':
+        targetPurpleRatio = 0.25;
+        targetSpeed = 1.3;
+        break;
+      case 'closing':
+        targetPurpleRatio = 0.6;
+        targetSpeed = 0.7;
+        break;
+      default:
+        targetPurpleRatio = 0.5;
+        targetSpeed = 1.0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════
+     INTERSECTION OBSERVER - SCROLL ANIMATIONS
+     ═══════════════════════════════════════════════════ */
+  const animElements = document.querySelectorAll('.fade-up, .fade-in, .scale-in');
+
+  const animObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  animElements.forEach(el => animObserver.observe(el));
+
+  /* ─── Section observer for WebGL color changes ─── */
+  const sections = document.querySelectorAll('[data-section]');
+
+  const sectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        onSectionChange(entry.target.dataset.section);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  sections.forEach(el => sectionObserver.observe(el));
+
+  /* ═══════════════════════════════════════════════════
+     DATA CALLOUT COUNTER ANIMATION
+     ═══════════════════════════════════════════════════ */
+  const counters = document.querySelectorAll('[data-count-to], [data-count-text]');
+
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !entry.target.dataset.counted) {
+        entry.target.dataset.counted = 'true';
+        const el = entry.target;
+
+        if (el.dataset.countText) {
+          const text = el.dataset.countText;
+          let idx = 0;
+          const interval = setInterval(() => {
+            idx++;
+            el.textContent = text.slice(0, idx);
+            if (idx >= text.length) clearInterval(interval);
+          }, 80);
+        } else {
+          const target = parseFloat(el.dataset.countTo);
+          const suffix = el.dataset.suffix || '';
+          const duration = 1500;
+          const start = performance.now();
+
+          function tick(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - (1 - progress) * (1 - progress);
+            const current = Math.round(eased * target);
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(tick);
+          }
+
+          requestAnimationFrame(tick);
+        }
+      }
+    });
+  }, { threshold: 0.3 });
+
+  counters.forEach(el => counterObserver.observe(el));
+
+})();
+</script>
+</body>
+</html>

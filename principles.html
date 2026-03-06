@@ -188,6 +188,62 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════
+   SECTION IMAGES
+   ═══════════════════════════════════════════════════ */
+.section-image {
+  width: 100%;
+  margin: 2.5rem 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.section-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+.section-image--hero {
+  margin: 0 0 3rem 0;
+  border-radius: 0;
+}
+
+.section-image--hero img {
+  border-radius: 0;
+}
+
+/* Full-bleed image that breaks out of container */
+.full-bleed-image {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.full-bleed-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Emotional mode images */
+.emotional-mode__image {
+  width: 100%;
+  margin-bottom: 1.2rem;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.emotional-mode__image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════
    PRINCIPLE SECTIONS
    ═══════════════════════════════════════════════════ */
 .principle {
@@ -308,6 +364,12 @@ body {
   .principle {
     padding: 4rem 0;
   }
+  .section-image {
+    margin: 1.5rem 0;
+  }
+  .full-bleed-image {
+    margin-top: 2rem;
+  }
 }
 </style>
 </head>
@@ -328,6 +390,10 @@ body {
     </div>
   </section>
 
+  <div class="section-image section-image--hero fade-up">
+    <img src="assets/images/01-hero.png" alt="Nexar particle cloud - flowing wave of data particles above a grid" loading="lazy">
+  </div>
+
   <div class="container">
 
     <!-- 1. FORM -->
@@ -338,6 +404,9 @@ body {
         <p>The particle cloud has no fixed silhouette. This is intentional and non-negotiable.</p>
         <p>The particles are always either in a state of chaos - dispersing, exploding, raw, unresolved - or in a state of emergence - coalescing into something that tells a story. A trajectory. A behavior. A truth taking shape.</p>
         <p>There is no middle ground. A static, symmetrical, decorative blob is not a Nexar Particle. The form must always imply motion, either outward or inward. Either breaking apart or coming together. The tension between these two states is where the meaning lives.</p>
+      </div>
+      <div class="section-image fade-up">
+        <img src="assets/images/04-cluster.png" alt="Two particle masses pulling together to form a cluster" loading="lazy">
       </div>
       <p class="pull-quote">Ask before using: Is this cloud going somewhere? Is it coming from somewhere? If the answer is neither, reshape it.</p>
     </div>
@@ -350,6 +419,9 @@ body {
         <p>The particle field never has a visible edge. Whatever frame contains it, the particles extend beyond it, cut off by the boundary, not contained by it. The viewer should always feel they are looking at a portion of something vastly larger. A window into the latent space, not the latent space itself.</p>
         <p>No padding around the cloud. No breathing room between the particles and the frame edge. Let it escape.</p>
         <p>This applies to all formats, slides, web, print, video. The latent space is infinite. The frame is just where we chose to look.</p>
+      </div>
+      <div class="full-bleed-image fade-up">
+        <img src="assets/images/02-latent-space.png" alt="The latent space - vast floating data cloud extending beyond the frame" loading="lazy">
       </div>
     </div>
 
@@ -366,6 +438,9 @@ body {
         <li>Density is never uniform. Real data clusters. Real data has voids. Force both into every composition.</li>
         <li>Occasional data artifacts are welcome, faint axis labels, coordinate markers, readout values in the background. Not readable. Just present. The suggestion of measurement.</li>
       </ul>
+      <div class="section-image fade-up">
+        <img src="assets/images/09-grid.png" alt="Particle mass above prominent grid floor - coordinate system anchoring the cloud" loading="lazy">
+      </div>
       <p class="pull-quote">The particles should feel like something a scientist would recognize, even if they could not name it.</p>
     </div>
 
@@ -386,6 +461,9 @@ body {
         <li><strong>The Grid Mark</strong> - a minimal perspective grid fragment. Always faint. Always receding.</li>
         <li><strong>The VERA Mark</strong> - TBD. See below.</li>
       </ul>
+      <div class="section-image fade-up">
+        <img src="assets/images/03-particle.png" alt="A single Nexar Particle - intimate low-hovering cloud" loading="lazy">
+      </div>
     </div>
 
     <!-- 5. VERA IONISATION -->
@@ -398,6 +476,9 @@ body {
       <div class="body-text">
         <p>VERA's presence in the visual system needs its own treatment. The working idea: when VERA acts on the particle field, something visibly changes. The particles respond. This ionisation moment, the visual language of VERA touching data, is a key motion and identity element to be developed.</p>
       </div>
+      <div class="section-image fade-up">
+        <img src="assets/images/06-vera.png" alt="VERA ionisation - particles responding to intelligence acting on the field" loading="lazy">
+      </div>
     </div>
 
     <!-- 6. EMOTIONAL REGISTER -->
@@ -409,14 +490,23 @@ body {
       </div>
       <div class="emotional-modes">
         <div class="emotional-mode fade-up">
+          <div class="emotional-mode__image">
+            <img src="assets/images/07-spectrum.png" alt="Full particle spectrum - vast, dispersed, overwhelming" loading="lazy">
+          </div>
           <p class="emotional-mode__name">Vast</p>
           <p class="emotional-mode__desc">The full cloud, dispersed, filling the frame, overwhelming. Used for scale moments. The 10 billion miles. The 45 petabytes. The full latent space.</p>
         </div>
         <div class="emotional-mode fade-up">
+          <div class="emotional-mode__image">
+            <img src="assets/images/08-density.png" alt="Sparse particle density - precise, isolated, examined" loading="lazy">
+          </div>
           <p class="emotional-mode__name">Precise</p>
           <p class="emotional-mode__desc">Sparse, isolated, a single cluster examined. Used for product moments. One incident. One insight. One truth surfaced.</p>
         </div>
         <div class="emotional-mode fade-up">
+          <div class="emotional-mode__image">
+            <img src="assets/images/05-behavior.png" alt="Particles in active transition - alive, forming, dissolving" loading="lazy">
+          </div>
           <p class="emotional-mode__name">Alive</p>
           <p class="emotional-mode__desc">Particles in active transition, forming or dissolving. Used for VERA moments. Intelligence at work. The moment before the answer.</p>
         </div>

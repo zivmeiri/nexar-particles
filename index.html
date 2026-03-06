@@ -10,7 +10,7 @@
    CUSTOM PROPERTIES
    ═══════════════════════════════════════════════════ */
 :root {
-  --bg-deep: #070C18;
+  --bg-deep: #0a0820;
   --teal: #1AECBC;
   --purple: #8B3FD9;
   --orange-pulse: #FF6B2B;
@@ -918,561 +918,394 @@ section {
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     THREE.JS & WEBGL PARTICLE SYSTEM v2
-     Infinite field · Depth of field · Curl noise · Parallax
+     THREE.JS BIOLUMINESCENT PARTICLE SYSTEM v3
+     200K particles · Custom shaders · Gaussian clustering
      ═══════════════════════════════════════════════════ -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
 (function() {
   'use strict';
 
+
   /* ─── Performance detection ─── */
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const isLowPower = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+  const PARTICLE_COUNT = isMobile ? 80000 : 200000;
 
-  /* ─── Felt particle texture: fuzzy, irregular, matte ─── */
-  // Simple 2D noise for organic shapes
-  function hash(x, y) {
-    let h = (x * 374761393 + y * 668265263 + 1013904223) | 0;
-    h = (h ^ (h >> 13)) * 1274126177;
-    return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff;
-  }
-  function noise2D(x, y) {
-    const ix = Math.floor(x), iy = Math.floor(y);
-    const fx = x - ix, fy = y - iy;
-    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-    const a = hash(ix, iy), b = hash(ix + 1, iy);
-    const c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
-    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-  }
-  function fbm(x, y, octaves) {
-    let v = 0, amp = 0.5, freq = 1;
-    for (let i = 0; i < octaves; i++) {
-      v += noise2D(x * freq, y * freq) * amp;
-      amp *= 0.5; freq *= 2;
+  // ─── CONSTANTS ───────────────────────────────────────────
+  const BG = new THREE.Color(0x0a0820);
+  const COLORS = {
+    purple: new THREE.Color(0x7a4dff),
+    teal:   new THREE.Color(0x23e7d8),
+    green:  new THREE.Color(0x4ade80),
+  };
+
+  // ─── CONFIG ──────────────────────────────────────────────
+  const DRIFT_AMPLITUDE = 0.002;
+  const DRIFT_SPEED = 0.035;
+  const BASE_SIZE = 1.0;
+  const MOUSE_RADIUS = 5.0;
+  const MOUSE_STRENGTH = 0.07;
+  const GRID_OPACITY = 0.20;
+  const FOG_NEAR = 25;
+  const FOG_FAR = 80;
+  const AUTO_ROTATE_SPEED = 0.04;
+
+  // ─── RENDERER ────────────────────────────────────────────
+  const canvas = document.getElementById('webgl-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(BG);
+
+  // ─── SCENE ───────────────────────────────────────────────
+  const scene = new THREE.Scene();
+  scene.background = BG;
+  scene.fog = new THREE.Fog(BG, FOG_NEAR, FOG_FAR);
+
+  // ─── CAMERA ──────────────────────────────────────────────
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.position.set(0, 7, 25);
+
+  // ─── MOUSE TRACKING ──────────────────────────────────────
+  const mouseWorld = new THREE.Vector3(0, 0, 0);
+  const mouseNDC = new THREE.Vector2(9999, 9999);
+  const raycaster = new THREE.Raycaster();
+  const mousePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+  window.addEventListener('mousemove', (e) => {
+    mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouseNDC, camera);
+    const target = new THREE.Vector3();
+    if (raycaster.ray.intersectPlane(mousePlane, target)) {
+      mouseWorld.copy(target);
     }
-    return v;
+  });
+
+  // ─── PERLIN NOISE ────────────────────────────────────────
+  const perm = new Uint8Array(512);
+  {
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+  }
+  function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  function plerp(a, b, t) { return a + t * (b - a); }
+  function pgrad(h, x, y) {
+    const v = h & 3;
+    return ((v & 1) ? -x : x) + ((v & 2) ? -y : y);
+  }
+  function perlin2D(x, y) {
+    const xi = Math.floor(x) & 255, yi = Math.floor(y) & 255;
+    const xf = x - Math.floor(x), yf = y - Math.floor(y);
+    const u = fade(xf), v = fade(yf);
+    return plerp(
+      plerp(pgrad(perm[perm[xi] + yi], xf, yf), pgrad(perm[perm[xi + 1] + yi], xf - 1, yf), u),
+      plerp(pgrad(perm[perm[xi] + yi + 1], xf, yf - 1), pgrad(perm[perm[xi + 1] + yi + 1], xf - 1, yf - 1), u),
+      v
+    );
   }
 
-  function createFeltTexture(size, seed) {
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size;
-    const ctx = c.getContext('2d');
-    const h = size / 2;
-    const imgData = ctx.createImageData(size, size);
-    const px = imgData.data;
-
+  // ─── NOISE TEXTURE (pre-baked for GPU) ───────────────────
+  function createNoiseTexture(size = 256) {
+    const data = new Float32Array(size * size * 4);
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
-        const idx = (y * size + x) * 4;
-        const dx = (x - h) / h, dy = (y - h) / h;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Warp the distance with noise — makes it an irregular blob, not a circle
-        const warp = fbm(dx * 3 + seed, dy * 3 + seed * 0.7, 4) * 0.35;
-        dist += warp - 0.17;
-
-        // Fuzzy felt edge: not a hard cutoff, but a fibrous fade
-        let alpha;
-        if (dist < 0.35) {
-          alpha = 1.0;
-        } else if (dist < 0.7) {
-          // Fibrous edge — noise makes it ragged
-          const edgeNoise = fbm(dx * 8 + seed * 2.3, dy * 8 + seed * 1.1, 3) * 0.3;
-          const edgeT = (dist - 0.35) / 0.35;
-          alpha = Math.max(0, 1.0 - edgeT + edgeNoise - 0.15);
-        } else {
-          alpha = 0;
-        }
-
-        // Surface texture: fine grain like felt fibers
-        const grain = (fbm(x * 0.5 + seed * 3, y * 0.5 + seed * 5, 3) - 0.5) * 0.3;
-        const luminance = Math.max(0, Math.min(1, 0.85 + grain));
-
-        px[idx]     = Math.round(luminance * 255);
-        px[idx + 1] = Math.round(luminance * 255);
-        px[idx + 2] = Math.round(luminance * 255);
-        px[idx + 3] = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+        const i = (y * size + x) * 4;
+        data[i]     = perlin2D(x / size * 4, y / size * 4) * 0.5 + 0.5;
+        data[i + 1] = perlin2D(x / size * 4 + 97, y / size * 4 + 97) * 0.5 + 0.5;
+        data[i + 2] = perlin2D(x / size * 4 + 193, y / size * 4 + 193) * 0.5 + 0.5;
+        data[i + 3] = 1.0;
       }
     }
-
-    ctx.putImageData(imgData, 0, 0);
-    const tex = new THREE.CanvasTexture(c);
+    const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.FloatType);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.needsUpdate = true;
     return tex;
   }
+  const noiseTexture = createNoiseTexture();
 
-  // Create several variant textures so not all particles look identical
-  const feltTextures = [];
-  for (let i = 0; i < 4; i++) {
-    feltTextures.push(createFeltTexture(64, i * 7.3 + 1.1));
-  }
-
-  /* ─── Scene setup ─── */
-  const canvas = document.getElementById('webgl-canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
-
-  const scene = new THREE.Scene();
-
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-  camera.position.set(0, 5, 35);
-  camera.lookAt(0, -3, -8);
-
-  /* ─── Color palette (matches reference renders) ─── */
-  const TEAL   = new THREE.Color(0x1AECBC);
-  const PURPLE = new THREE.Color(0x8B3FD9);
-  const GREEN  = new THREE.Color(0x3BD98F);
-  const BLUE   = new THREE.Color(0x4488DD);
-  const ORANGE = new THREE.Color(0xFF6B2B);
-
-  /* ═══════════════════════════════════════════════════
-     CURL NOISE — organic turbulent motion
-     Multi-octave layered trig approximation of curl noise.
-     Divergence-free so particles flow in streams, never clump.
-     ═══════════════════════════════════════════════════ */
-  function curlNoise(x, y, z, t) {
-    const s = 0.12;
-    const sx = x * s, sy = y * s, sz = z * s;
-    const st = t * 0.25;
-
-    // Potential field derivatives (approximate curl)
-    const dx = Math.sin(sy * 1.4 + st) * Math.cos(sz * 0.8 + st * 0.7) * 0.5
-             + Math.sin(sz * 2.1 - st * 0.5) * 0.25
-             + Math.cos(sy * 0.6 + sz * 1.2 + st * 0.3) * 0.15;
-
-    const dy = Math.sin(sz * 1.1 + st * 0.8) * Math.cos(sx * 0.9 - st * 0.6) * 0.3
-             + Math.cos(sx * 1.7 + st * 0.4) * 0.15
-             - Math.sin(sx * 0.4 + sz * 0.9 - st * 0.2) * 0.08;
-
-    const dz = Math.sin(sx * 1.3 - st * 0.9) * Math.cos(sy * 1.0 + st * 0.5) * 0.5
-             + Math.cos(sx * 0.5 + sy * 1.4 - st * 0.3) * 0.25;
-
-    return { x: dx, y: dy, z: dz };
-  }
-
-  /* ═══════════════════════════════════════════════════
-     PARTICLE FIELD — infinite, depth-varied
-     ═══════════════════════════════════════════════════ */
-  const COUNT = isLowPower ? 4000 : 12000;
-
-  const BX = 65, BY = 30, BZ = 90;
-  const HX = BX / 2, HY = BY / 2, HZ = BZ / 2;
-  const Z_OFFSET = -10;
-
-  const geo = new THREE.BufferGeometry();
-  const pos    = new Float32Array(COUNT * 3);
-  const col    = new Float32Array(COUNT * 3);
-  const aSize  = new Float32Array(COUNT);
-  const aDepth = new Float32Array(COUNT);
-  const aPhase = new Float32Array(COUNT);
-  const aTexID = new Float32Array(COUNT); // which felt texture variant
-
-  // Per-particle velocity for mouse interaction (JS-side, not in shader)
-  const vel = new Float32Array(COUNT * 3); // starts at zero
-
-  for (let i = 0; i < COUNT; i++) {
-    pos[i * 3]     = (Math.random() - 0.5) * BX;
-    pos[i * 3 + 1] = (Math.random() - 0.5) * BY;
-    pos[i * 3 + 2] = (Math.random() - 0.5) * BZ + Z_OFFSET;
-
-    const d = Math.random();
-    aDepth[i] = d;
-
-    // Size: mostly small felt specks
-    const r = Math.random();
-    if (r < 0.50)      aSize[i] = 0.06 + Math.random() * 0.10;
-    else if (r < 0.78) aSize[i] = 0.12 + Math.random() * 0.20;
-    else if (r < 0.93) aSize[i] = 0.25 + Math.random() * 0.35;
-    else                aSize[i] = 0.45 + Math.random() * 0.45;
-
-    // Texture variant
-    aTexID[i] = Math.floor(Math.random() * 4);
-
-    // Color
-    const t = Math.random();
-    const c = new THREE.Color();
-    if (t < 0.28)      c.copy(TEAL);
-    else if (t < 0.52) c.copy(PURPLE);
-    else if (t < 0.72) c.copy(GREEN);
-    else if (t < 0.85) c.lerpColors(TEAL, PURPLE, Math.random());
-    else if (t < 0.93) c.lerpColors(GREEN, BLUE, Math.random());
-    else                c.copy(ORANGE);
-
-    c.offsetHSL(
-      (Math.random() - 0.5) * 0.06,
-      (Math.random() - 0.5) * 0.08,
-      (Math.random() - 0.5) * 0.1
-    );
-
-    col[i * 3]     = c.r;
-    col[i * 3 + 1] = c.g;
-    col[i * 3 + 2] = c.b;
-    aPhase[i] = Math.random() * Math.PI * 2;
-  }
-
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
-  geo.setAttribute('aSize',    new THREE.BufferAttribute(aSize, 1));
-  geo.setAttribute('aDepth',   new THREE.BufferAttribute(aDepth, 1));
-  geo.setAttribute('aPhase',   new THREE.BufferAttribute(aPhase, 1));
-
-  /* ─── Pack 4 felt textures into a 2x2 atlas ─── */
-  const atlasSize = 128;
-  const atlasCanvas = document.createElement('canvas');
-  atlasCanvas.width = atlasSize; atlasCanvas.height = atlasSize;
-  const atlasCtx = atlasCanvas.getContext('2d');
-  // Each felt texture is 64x64, placed in quadrants
-  for (let i = 0; i < 4; i++) {
-    const src = feltTextures[i].image;
-    const ox = (i % 2) * 64, oy = Math.floor(i / 2) * 64;
-    atlasCtx.drawImage(src, ox, oy, 64, 64);
-  }
-  const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
-  atlasTexture.magFilter = THREE.LinearFilter;
-  atlasTexture.minFilter = THREE.LinearMipmapLinearFilter;
-
-  // Pass texture variant as attribute
-  geo.setAttribute('aTexID', new THREE.BufferAttribute(aTexID, 1));
-
-  /* ─── Particle shaders — felt material + texture atlas ─── */
-  const particleVert = `
-    attribute float aSize;
-    attribute float aDepth;
-    attribute float aPhase;
-    attribute float aTexID;
-
-    uniform float uTime;
-    uniform float uFocusDist;
-
-    varying vec3  vColor;
-    varying float vAlpha;
-    varying vec2  vTexOffset; // which quadrant of atlas
-
-    void main() {
-      vColor = color;
-
-      // Atlas offset: 0,1,2,3 → (0,0), (0.5,0), (0,0.5), (0.5,0.5)
-      float tid = floor(aTexID + 0.5);
-      vTexOffset = vec2(mod(tid, 2.0) * 0.5, floor(tid / 2.0) * 0.5);
-
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      float dist = -mvPos.z;
-
-      float pSize = aSize * (300.0 / max(dist, 1.0));
-      gl_PointSize = clamp(pSize, 0.5, 40.0);
-
-      // Distance fade
-      float farFade  = 1.0 - smoothstep(40.0, 100.0, dist);
-      float nearFade = smoothstep(0.5, 4.0, dist);
-
-      // Depth of field: dim out-of-focus
-      float focusDelta = abs(dist - uFocusDist);
-      float dofDim = 1.0 - smoothstep(0.0, 35.0, focusDelta) * 0.45;
-
-      float twinkle = 0.92 + 0.08 * sin(uTime * 0.7 + aPhase * 6.28);
-
-      vAlpha = farFade * nearFade * dofDim * twinkle;
-
-      gl_Position = projectionMatrix * mvPos;
-    }
-  `;
-
-  const particleFrag = `
-    uniform sampler2D uAtlas;
-    varying vec3  vColor;
-    varying float vAlpha;
-    varying vec2  vTexOffset;
-
-    void main() {
-      // Sample from the correct atlas quadrant
-      vec2 uv = gl_PointCoord * 0.5 + vTexOffset;
-      vec4 tex = texture2D(uAtlas, uv);
-
-      float alpha = tex.a * vAlpha;
-      if (alpha < 0.01) discard;
-
-      // Use the texture luminance to modulate color — felt surface variation
-      float lum = tex.r;
-      vec3 col = vColor * (0.7 + lum * 0.6);
-
-      gl_FragColor = vec4(col, alpha);
-    }
-  `;
-
-  const particleMat = new THREE.ShaderMaterial({
+  // ─── INFINITE GRID FLOOR ─────────────────────────────────
+  const gridMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
     uniforms: {
-      uAtlas:     { value: atlasTexture },
-      uTime:      { value: 0 },
-      uFocusDist: { value: 28.0 }
+      uColor: { value: COLORS.purple.clone() },
+      uOpacity: { value: GRID_OPACITY },
     },
-    vertexShader:   particleVert,
-    fragmentShader: particleFrag,
-    vertexColors:   true,
-    transparent:    true,
-    blending:       THREE.NormalBlending,
-    depthWrite:     false,
-    depthTest:      true
+    vertexShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      varying vec3 vWorldPos;
+      void main() {
+        vec2 coord = vWorldPos.xz;
+        vec2 grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
+        float line = min(grid.x, grid.y);
+        float gridAlpha = 1.0 - min(line, 1.0);
+
+        vec2 grid5 = abs(fract(coord / 5.0 - 0.5) - 0.5) / fwidth(coord / 5.0);
+        float line5 = min(grid5.x, grid5.y);
+        float majorAlpha = 1.0 - min(line5, 1.0);
+
+        float dist = length(vWorldPos.xz);
+        float distFade = 1.0 - smoothstep(8.0, 70.0, dist);
+
+        float alpha = (gridAlpha * 0.5 + majorAlpha * 0.8) * distFade * uOpacity;
+        vec3 col = uColor * (1.0 + majorAlpha * 0.5);
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
   });
 
-  const particles = new THREE.Points(geo, particleMat);
+  const gridPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    gridMaterial
+  );
+  gridPlane.rotation.x = -Math.PI / 2;
+  gridPlane.position.y = -6;
+  scene.add(gridPlane);
+
+  // ─── GAUSSIAN CLUSTERING ─────────────────────────────────
+  function boxMuller() {
+    let u1 = Math.random(), u2 = Math.random();
+    while (u1 === 0) u1 = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+  }
+
+  function generatePositions(count) {
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    const seeds = new Float32Array(count);
+    const clusters = new Float32Array(count);
+
+    const clusterCenters = [
+      { x: -10, y: 1, z: -4, spread: 7 },
+      { x: 9,  y: 1.5, z: 3,  spread: 7 },
+      { x: 1,  y: 0.5, z: 12, spread: 5 },
+    ];
+
+    const purpleEnd = Math.floor(count * 0.45);
+    const tealEnd = purpleEnd + Math.floor(count * 0.45);
+
+    for (let i = 0; i < count; i++) {
+      let clusterIdx;
+      if (i < purpleEnd) clusterIdx = 0;
+      else if (i < tealEnd) clusterIdx = 1;
+      else clusterIdx = 2;
+
+      const c = clusterCenters[clusterIdx];
+      const i3 = i * 3;
+
+      const isAmbient = Math.random() < 0.20;
+      if (isAmbient) {
+        positions[i3]     = (Math.random() - 0.5) * 50;
+        positions[i3 + 1] = Math.random() * 8 - 2;
+        positions[i3 + 2] = (Math.random() - 0.5) * 50;
+      } else {
+        positions[i3]     = c.x + boxMuller() * c.spread;
+        positions[i3 + 1] = c.y + boxMuller() * c.spread * 0.3;
+        positions[i3 + 2] = c.z + boxMuller() * c.spread;
+      }
+
+      sizes[i] = 0.4 + Math.random() * 1.6;
+      seeds[i] = Math.random();
+      clusters[i] = clusterIdx;
+    }
+    return { positions, sizes, seeds, clusters };
+  }
+
+  // ─── PARTICLE SHADERS ────────────────────────────────────
+  const particleVertexShader = `
+    uniform float uTime;
+    uniform float uDriftAmplitude;
+    uniform float uDriftSpeed;
+    uniform float uBaseSize;
+    uniform float uPixelRatio;
+    uniform vec3 uMouse;
+    uniform float uMouseRadius;
+    uniform float uMouseStrength;
+    uniform sampler2D uNoiseTexture;
+
+    attribute float aSize;
+    attribute float aSeed;
+    attribute float aCluster;
+
+    varying float vAlpha;
+    varying float vCluster;
+    varying float vSeed;
+    varying float vSize;
+
+    void main() {
+      vec2 noiseUV = vec2(aSeed, uTime * uDriftSpeed);
+      vec3 noiseVal = texture2D(uNoiseTexture, noiseUV).rgb * 2.0 - 1.0;
+      vec3 drift = noiseVal * uDriftAmplitude * 50.0;
+      vec3 pos = position + drift;
+
+      // Mouse attraction
+      vec3 toMouse = uMouse - pos;
+      float dist = length(toMouse);
+      if (dist < uMouseRadius && dist > 0.01) {
+        float strength = smoothstep(uMouseRadius, 0.0, dist) * uMouseStrength;
+        pos += normalize(toMouse) * strength * dist;
+      }
+
+      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+
+      float camDist = -mvPosition.z;
+      float sizeAtten = 55.0 / max(camDist, 0.5);
+      float pointSize = aSize * uBaseSize * sizeAtten * uPixelRatio;
+      gl_PointSize = clamp(pointSize, 0.5, 14.0);
+
+      float depthNorm = smoothstep(2.0, 50.0, camDist);
+      vAlpha = mix(1.0, 0.08, depthNorm);
+
+      vCluster = aCluster;
+      vSeed = aSeed;
+      vSize = gl_PointSize;
+    }
+  `;
+
+  const particleFragmentShader = `
+    uniform vec3 uColorPurple;
+    uniform vec3 uColorTeal;
+    uniform vec3 uColorGreen;
+
+    varying float vAlpha;
+    varying float vCluster;
+    varying float vSeed;
+    varying float vSize;
+
+    void main() {
+      vec2 uv = gl_PointCoord - 0.5;
+      float d = length(uv) * 2.0;
+      if (d > 1.0) discard;
+
+      vec3 baseColor;
+      if (vCluster < 0.5) baseColor = uColorPurple;
+      else if (vCluster < 1.5) baseColor = uColorTeal;
+      else baseColor = uColorGreen;
+
+      float hueShift = (vSeed - 0.5) * 0.2;
+      baseColor += vec3(hueShift, -hueShift * 0.5, hueShift * 0.3);
+
+      float core = exp(-d * d * 3.5);
+      float glow = exp(-d * d * 1.0);
+
+      float grain = fract(sin(dot(gl_PointCoord + vSeed, vec2(12.9898, 78.233))) * 43758.5453);
+      float feltTex = 0.75 + 0.25 * grain;
+
+      float lum = 0.45 + 0.55 * vSeed;
+
+      vec3 color = baseColor * glow * 0.65;
+      color = mix(color, baseColor * 1.4, core * 0.8);
+      color += vec3(0.03, 0.01, 0.0) * core;
+      color *= feltTex * lum;
+
+      float alpha = glow * vAlpha * 0.55;
+      alpha = mix(alpha, vAlpha * 0.95, core * 0.7);
+      alpha *= feltTex;
+
+      gl_FragColor = vec4(color, alpha);
+    }
+  `;
+
+  // ─── CREATE PARTICLES ────────────────────────────────────
+  const data = generatePositions(PARTICLE_COUNT);
+
+  const particleGeometry = new THREE.BufferGeometry();
+  particleGeometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+  particleGeometry.setAttribute('aSize', new THREE.BufferAttribute(data.sizes, 1));
+  particleGeometry.setAttribute('aSeed', new THREE.BufferAttribute(data.seeds, 1));
+  particleGeometry.setAttribute('aCluster', new THREE.BufferAttribute(data.clusters, 1));
+
+  const particleMaterial = new THREE.ShaderMaterial({
+    vertexShader: particleVertexShader,
+    fragmentShader: particleFragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    uniforms: {
+      uTime: { value: 0 },
+      uDriftAmplitude: { value: DRIFT_AMPLITUDE },
+      uDriftSpeed: { value: DRIFT_SPEED },
+      uBaseSize: { value: BASE_SIZE },
+      uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+      uMouse: { value: mouseWorld },
+      uMouseRadius: { value: MOUSE_RADIUS },
+      uMouseStrength: { value: MOUSE_STRENGTH },
+      uNoiseTexture: { value: noiseTexture },
+      uColorPurple: { value: COLORS.purple },
+      uColorTeal: { value: COLORS.teal },
+      uColorGreen: { value: COLORS.green },
+    },
+  });
+
+  const particles = new THREE.Points(particleGeometry, particleMaterial);
   scene.add(particles);
 
-  /* ═══════════════════════════════════════════════════
-     INFINITE GRID FLOOR — the latent space
-     ═══════════════════════════════════════════════════ */
-  const gridGroup = new THREE.Group();
-  gridGroup.position.y = -8;
-
-  const gridVS = `
-    varying vec3 vWorldPos;
-    varying float vDist;
-    void main() {
-      vec4 wp = modelMatrix * vec4(position, 1.0);
-      vWorldPos = wp.xyz;
-      vec4 mv = modelViewMatrix * vec4(position, 1.0);
-      vDist = length(mv.xyz);
-      gl_Position = projectionMatrix * mv;
-    }
-  `;
-
-  const gridFS = `
-    uniform vec3  uColor;
-    uniform float uOpacity;
-    uniform float uFadeStart;
-    uniform float uFadeEnd;
-    varying vec3  vWorldPos;
-    varying float vDist;
-    void main() {
-      float distFade   = 1.0 - smoothstep(uFadeStart, uFadeEnd, vDist);
-      float centerFade = 1.0 - smoothstep(15.0, 80.0, length(vWorldPos.xz));
-      float a = uOpacity * distFade * centerFade;
-      if (a < 0.003) discard;
-      gl_FragColor = vec4(uColor, a);
-    }
-  `;
-
-  // Main grid — visible, clean lines like the reference renders
-  const GS = 200, GSTEP = 2.0;
-  const mgv = [];
-  for (let i = -GS / 2; i <= GS / 2; i += GSTEP) {
-    mgv.push(-GS / 2, 0, i, GS / 2, 0, i);
-    mgv.push(i, 0, -GS / 2, i, 0, GS / 2);
-  }
-  const mgGeo = new THREE.BufferGeometry();
-  mgGeo.setAttribute('position', new THREE.Float32BufferAttribute(mgv, 3));
-
-  const mgMat = new THREE.ShaderMaterial({
-    uniforms: {
-      uColor:     { value: new THREE.Color(0x1AECBC) },
-      uOpacity:   { value: 0.18 },
-      uFadeStart: { value: 8.0 },
-      uFadeEnd:   { value: 100.0 }
-    },
-    vertexShader: gridVS, fragmentShader: gridFS,
-    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-  });
-  gridGroup.add(new THREE.LineSegments(mgGeo, mgMat));
-
-  // Sub grid — finer detail
-  const SGSTEP = 0.5;
-  const sgv = [];
-  for (let i = -GS / 2; i <= GS / 2; i += SGSTEP) {
-    if (Math.abs(i % GSTEP) < 0.01) continue;
-    sgv.push(-GS / 2, 0, i, GS / 2, 0, i);
-    sgv.push(i, 0, -GS / 2, i, 0, GS / 2);
-  }
-  const sgGeo = new THREE.BufferGeometry();
-  sgGeo.setAttribute('position', new THREE.Float32BufferAttribute(sgv, 3));
-
-  const sgMat = new THREE.ShaderMaterial({
-    uniforms: {
-      uColor:     { value: new THREE.Color(0x1AECBC) },
-      uOpacity:   { value: 0.06 },
-      uFadeStart: { value: 5.0 },
-      uFadeEnd:   { value: 55.0 }
-    },
-    vertexShader: gridVS, fragmentShader: gridFS,
-    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-  });
-  gridGroup.add(new THREE.LineSegments(sgGeo, sgMat));
-
-  scene.add(gridGroup);
-
-  /* ─── Scroll state ─── */
-  let targetPurpleRatio = 0.5;
-  let currentPurpleRatio = 0.5;
-  let targetSpeed = 1.0;
-  let currentSpeed = 1.0;
-
-  /* ═══════════════════════════════════════════════════
-     MOUSE TRACKING — project screen position to 3D
-     ═══════════════════════════════════════════════════ */
-  const mouse = new THREE.Vector2(9999, 9999); // offscreen initially
-  const mouse3D = new THREE.Vector3(9999, 9999, 0);
-  const raycaster = new THREE.Raycaster();
-  // Invisible plane at z=0 for mouse projection
-  const mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-
-  canvas.addEventListener('mousemove', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    const target = new THREE.Vector3();
-    raycaster.ray.intersectPlane(mousePlane, target);
-    if (target) {
-      mouse3D.copy(target);
-    }
+  // ─── RESIZE ──────────────────────────────────────────────
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    particleMaterial.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2);
   });
 
-  canvas.addEventListener('mouseleave', () => {
-    mouse3D.set(9999, 9999, 0);
-  });
-
-  // Touch support
-  canvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length > 0) {
-      const t = e.touches[0];
-      mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const target = new THREE.Vector3();
-      raycaster.ray.intersectPlane(mousePlane, target);
-      if (target) mouse3D.copy(target);
-    }
-  }, { passive: true });
-  canvas.addEventListener('touchend', () => {
-    mouse3D.set(9999, 9999, 0);
-  });
-
-  /* ═══════════════════════════════════════════════════
-     ANIMATION LOOP
-     ═══════════════════════════════════════════════════ */
-  let time = 0;
-
-  // Mouse interaction constants
-  const CURIOUS_RADIUS = 28;
-  const CURIOUS_STRENGTH = 0.03;
-  const VEL_DAMPING = 0.96;
+  // ─── ANIMATION LOOP ─────────────────────────────────────
+  const clock = new THREE.Clock();
 
   function animate() {
     requestAnimationFrame(animate);
-    time += 0.008;
+    const elapsed = clock.getElapsedTime();
 
-    currentPurpleRatio += (targetPurpleRatio - currentPurpleRatio) * 0.015;
-    currentSpeed += (targetSpeed - currentSpeed) * 0.015;
+    // Update uniforms
+    particleMaterial.uniforms.uTime.value = elapsed;
 
-    particleMat.uniforms.uTime.value = time;
-
-    const p = geo.attributes.position.array;
-    const c = geo.attributes.color.array;
-    const dp = geo.attributes.aDepth.array;
-
-    const mx = mouse3D.x, my = mouse3D.y, mz = mouse3D.z;
-    const mouseActive = mx < 1000;
-
-    for (let i = 0; i < COUNT; i++) {
-      const i3 = i * 3;
-      const x = p[i3], y = p[i3 + 1], z = p[i3 + 2];
-      const depth = dp[i];
-
-      // Curl noise motion - slow, dreamy
-      const speed = (1.0 - depth * 0.7) * 0.004 * currentSpeed;
-      const curl = curlNoise(x, y, z, time);
-      vel[i3]     += curl.x * speed;
-      vel[i3 + 1] += curl.y * speed * 0.4;
-      vel[i3 + 2] += curl.z * speed;
-
-      // Mouse interaction: all curious
-      if (mouseActive) {
-        const dx = mx - x, dy = my - y, dz = mz - z;
-        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.001;
-
-        if (dist < CURIOUS_RADIUS) {
-          const curiosity = CURIOUS_STRENGTH * (1 - dist / CURIOUS_RADIUS);
-          vel[i3]     += (dx / dist) * curiosity;
-          vel[i3 + 1] += (dy / dist) * curiosity;
-          vel[i3 + 2] += (dz / dist) * curiosity * 0.1;
-        }
-      }
-
-      // Apply velocity with damping
-      vel[i3]     *= VEL_DAMPING;
-      vel[i3 + 1] *= VEL_DAMPING;
-      vel[i3 + 2] *= VEL_DAMPING;
-
-      p[i3]     += vel[i3];
-      p[i3 + 1] += vel[i3 + 1];
-      p[i3 + 2] += vel[i3 + 2];
-
-      // Infinite wrapping
-      if (p[i3]     >  HX) p[i3]     -= BX;
-      if (p[i3]     < -HX) p[i3]     += BX;
-      if (p[i3 + 1] >  HY) p[i3 + 1] -= BY;
-      if (p[i3 + 1] < -HY) p[i3 + 1] += BY;
-      if (p[i3 + 2] >  HZ + Z_OFFSET) p[i3 + 2] -= BZ;
-      if (p[i3 + 2] < -HZ + Z_OFFSET) p[i3 + 2] += BZ;
-
-      // Scroll-based color shift
-      const shouldBePurple = (i / COUNT) < currentPurpleRatio;
-      const tgt = shouldBePurple ? PURPLE : TEAL;
-      c[i3]     += (tgt.r - c[i3])     * 0.004;
-      c[i3 + 1] += (tgt.g - c[i3 + 1]) * 0.004;
-      c[i3 + 2] += (tgt.b - c[i3 + 2]) * 0.004;
-    }
-
-    geo.attributes.position.needsUpdate = true;
-    geo.attributes.color.needsUpdate = true;
-
-    // ── Grid animation ──
-    gridGroup.position.z = ((time * 0.015) % GSTEP);
-    const gPulse = 0.14 + Math.sin(time * 0.2) * 0.04;
-    mgMat.uniforms.uOpacity.value = gPulse;
-    const gc = new THREE.Color().lerpColors(TEAL, PURPLE, currentPurpleRatio * 0.3);
-    mgMat.uniforms.uColor.value.copy(gc);
-    sgMat.uniforms.uColor.value.copy(gc);
-
-    // ── Camera: slow organic drift ──
-    camera.position.x = Math.sin(time * 0.04) * 2.0;
-    camera.position.y = 5.0 + Math.sin(time * 0.03) * 1.0;
-    camera.lookAt(0, -3, -8);
+    // Camera: slow organic orbit + drift
+    const radius = 25;
+    camera.position.x = Math.sin(elapsed * AUTO_ROTATE_SPEED) * radius;
+    camera.position.z = Math.cos(elapsed * AUTO_ROTATE_SPEED) * radius;
+    camera.position.y = 7.0 + Math.sin(elapsed * 0.03) * 1.5;
+    camera.lookAt(0, 0, 0);
 
     renderer.render(scene, camera);
   }
 
   animate();
 
-  /* ─── Resize ─── */
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+})();
+</script>
 
-  /* ─── Section-based color changes ─── */
-  function onSectionChange(section) {
-    switch (section) {
-      case 'vera':
-        targetPurpleRatio = 0.8;
-        targetSpeed = 0.5;
-        break;
-      case 'visual-intro':
-      case 'color':
-        targetPurpleRatio = 0.25;
-        targetSpeed = 1.3;
-        break;
-      case 'closing':
-        targetPurpleRatio = 0.6;
-        targetSpeed = 0.7;
-        break;
-      default:
-        targetPurpleRatio = 0.5;
-        targetSpeed = 1.0;
-    }
-  }
+<!-- ═══════════════════════════════════════════════════
+     SCROLL ANIMATIONS & COUNTERS
+     ═══════════════════════════════════════════════════ -->
+<script>
+(function() {
+  'use strict';
 
   /* ═══════════════════════════════════════════════════
      INTERSECTION OBSERVER - SCROLL ANIMATIONS
@@ -1489,13 +1322,13 @@ section {
 
   animElements.forEach(el => animObserver.observe(el));
 
-  /* ─── Section observer for WebGL color changes ─── */
+  /* ─── Section observer ─── */
   const sections = document.querySelectorAll('[data-section]');
 
   const sectionObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        onSectionChange(entry.target.dataset.section);
+        // Section tracking (extensible)
       }
     });
   }, { threshold: 0.15 });
@@ -1503,41 +1336,36 @@ section {
   sections.forEach(el => sectionObserver.observe(el));
 
   /* ═══════════════════════════════════════════════════
-     DATA CALLOUT COUNTER ANIMATION
+     ANIMATED COUNTERS
      ═══════════════════════════════════════════════════ */
   const counters = document.querySelectorAll('[data-count-to], [data-count-text]');
 
   const counterObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      if (entry.isIntersecting && !entry.target.dataset.counted) {
-        entry.target.dataset.counted = 'true';
+      if (entry.isIntersecting) {
         const el = entry.target;
+        counterObserver.unobserve(el);
 
         if (el.dataset.countText) {
-          const text = el.dataset.countText;
-          let idx = 0;
-          const interval = setInterval(() => {
-            idx++;
-            el.textContent = text.slice(0, idx);
-            if (idx >= text.length) clearInterval(interval);
-          }, 80);
-        } else {
-          const target = parseFloat(el.dataset.countTo);
-          const suffix = el.dataset.suffix || '';
-          const duration = 1500;
-          const start = performance.now();
-
-          function tick(now) {
-            const elapsed = now - start;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - (1 - progress) * (1 - progress);
-            const current = Math.round(eased * target);
-            el.textContent = current + suffix;
-            if (progress < 1) requestAnimationFrame(tick);
-          }
-
-          requestAnimationFrame(tick);
+          el.textContent = el.dataset.countText;
+          return;
         }
+
+        const target = parseInt(el.dataset.countTo, 10);
+        const suffix = el.dataset.suffix || '';
+        const duration = 2000;
+        const start = performance.now();
+
+        function tick(now) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - (1 - progress) * (1 - progress);
+          const current = Math.round(eased * target);
+          el.textContent = current + suffix;
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
       }
     });
   }, { threshold: 0.3 });
